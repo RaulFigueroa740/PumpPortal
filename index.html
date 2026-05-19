@@ -90,8 +90,10 @@ body::before{content:'';position:fixed;inset:0;background-image:radial-gradient(
 
 /* ── DASHBOARD: mini bot row ── */
 .mini-bot-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:16px}
-.mini-bot{background:var(--card);border:2px solid var(--border);border-radius:12px;padding:12px;position:relative;overflow:hidden;transition:border-color .3s}
-.mini-bot.active{box-shadow:0 0 16px rgba(0,0,0,.4)}
+.mini-bot{background:var(--card);border:none;border-radius:12px;padding:12px;position:relative;overflow:hidden;isolation:isolate}
+.mini-bot::before{content:'';position:absolute;width:300%;height:300%;top:-100%;left:-100%;background:conic-gradient(#00ff9d 0%,#00d4aa 12%,#0d1117 22%,#0099ff 40%,#0d1117 52%,#a78bfa 64%,#0d1117 74%,#00ff9d 88%,#0d1117 100%);animation:spinBorder 5s linear infinite;z-index:0}
+.mini-bot::after{content:'';position:absolute;inset:1px;border-radius:11px;background:var(--card);z-index:1}
+.mini-bot>*{position:relative;z-index:2}
 .mini-bot-top{display:flex;align-items:center;gap:10px;margin-bottom:8px}
 .mini-avatar{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
 .mini-name{font-size:12px;font-weight:700;color:var(--bright)}
@@ -100,9 +102,11 @@ body::before{content:'';position:fixed;inset:0;background-image:radial-gradient(
 
 /* ── TRADING: 4-bot grid ── */
 .bot-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px}
-.bot-card{background:var(--card);border:2px solid var(--border);border-radius:16px;padding:16px;position:relative;overflow:hidden;transition:border-color .3s,box-shadow .3s}
-.bot-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;border-radius:16px 16px 0 0}
-.bot-card.active{box-shadow:0 0 24px rgba(0,0,0,.5)}
+.bot-card{background:var(--card);border:none;border-radius:16px;padding:16px;position:relative;overflow:hidden;isolation:isolate}
+.bot-card::before{content:'';position:absolute;width:300%;height:300%;top:-100%;left:-100%;background:conic-gradient(#00ff9d 0%,#00e5b0 8%,#0d1117 18%,#0099ff 32%,#0d1117 42%,#a78bfa 56%,#0d1117 66%,#ff4d6d 78%,#0d1117 88%,#00ff9d 100%);animation:spinBorder 3.5s linear infinite;z-index:0}
+.bot-card::after{content:'';position:absolute;inset:1.5px;border-radius:14.5px;background:var(--card);z-index:1}
+.bot-card>*{position:relative;z-index:2}
+.bot-card.active::before{animation-duration:2s}
 
 .bc-top{display:flex;align-items:center;gap:10px;margin-bottom:12px}
 .bc-avatar{width:40px;height:40px;border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0}
@@ -151,8 +155,10 @@ tr.new-row{animation:slideUp .3s ease}
 .hero-sub{font-size:11px;color:var(--dim);margin-top:4px}
 
 .bot-breakdown{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:16px}
-.bd-card{background:var(--card);border:2px solid var(--border);border-radius:12px;padding:14px;position:relative;overflow:hidden}
-.bd-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px}
+.bd-card{background:var(--card);border:none;border-radius:12px;padding:14px;position:relative;overflow:hidden;isolation:isolate}
+.bd-card::before{content:'';position:absolute;width:300%;height:300%;top:-100%;left:-100%;background:conic-gradient(#00ff9d 0%,#00d4aa 12%,#0d1117 22%,#0099ff 40%,#0d1117 52%,#a78bfa 64%,#0d1117 74%,#00ff9d 88%,#0d1117 100%);animation:spinBorder 5s linear infinite;z-index:0}
+.bd-card::after{content:'';position:absolute;inset:1px;border-radius:11px;background:var(--card);z-index:1}
+.bd-card>*{position:relative;z-index:2}
 .bd-top{display:flex;align-items:center;gap:8px;margin-bottom:10px}
 .bd-nums{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
 
@@ -194,6 +200,7 @@ tr.new-row{animation:slideUp .3s ease}
 @keyframes slideUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
 @keyframes shimmer{to{background-position:200% 0}}
 @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
+@keyframes spinBorder{to{transform:rotate(360deg)}}
 
 /* ── LOADER — MAINFRAME HACK ── */
 #loader{position:fixed;inset:0;z-index:999999;background:#000;display:flex;align-items:center;justify-content:center;transition:opacity .7s ease,visibility .7s ease;overflow:hidden}
@@ -832,7 +839,7 @@ function renderAll() {
       const bpnl = lv - 500;
       const bcls = bpnl >= 0 ? 'g' : 'r';
       const isActive = !!rt.pos;
-      return `<div class="mini-bot ${isActive?'active':''}" style="${isActive?'border-color:'+def.color:''}">
+      return `<div class="mini-bot ${isActive?'active':''}">
         <div class="mini-bot-top">
           <div class="mini-avatar" style="background:${def.color}18">${def.emoji}</div>
           <div><div class="mini-name">${def.name}</div><div class="mini-strat">${def.desc}</div></div>
@@ -877,8 +884,7 @@ function renderAll() {
       const bpnl = lv - 500;
       const bcls = bpnl >= 0 ? 'g' : 'r';
       const isActive = !!rt.pos;
-      return `<div class="bot-card ${isActive?'active':''}" style="--bc:${def.color};${isActive?'border-color:'+def.color+';box-shadow:0 0 20px '+def.color+'22':''}" >
-        <div style="position:absolute;top:0;left:0;right:0;height:3px;background:${def.color};border-radius:16px 16px 0 0;opacity:.8"></div>
+      return `<div class="bot-card ${isActive?'active':''}">
         <div class="bc-top">
           <div class="bc-avatar" style="background:${def.color}18">${def.emoji}</div>
           <div><div class="bc-name">${def.name}</div><div class="bc-strat">${def.desc}</div></div>
@@ -920,8 +926,7 @@ function renderAll() {
       const bpnl = lv - 500;
       const bcls = bpnl >= 0 ? 'g' : 'r';
       const bwr  = (bot.wins+bot.losses)>0 ? Math.round(bot.wins/(bot.wins+bot.losses)*100)+'%' : '–';
-      return `<div class="bd-card" style="border-color:${bpnl>=0?def.color+'55':'var(--border)'}">
-        <div style="position:absolute;top:0;left:0;right:0;height:2px;background:${def.color}"></div>
+      return `<div class="bd-card">
         <div class="bd-top">
           <span style="font-size:22px">${def.emoji}</span>
           <div><div style="font-size:13px;font-weight:700;color:var(--bright)">${def.name}</div><div style="font-size:10px;color:var(--dim)">${def.desc}</div></div>
