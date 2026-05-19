@@ -221,6 +221,15 @@ tr.new-row{animation:slideUp .3s ease}
 @keyframes slideUp2{from{transform:translateY(100%);opacity:0}to{transform:none;opacity:1}}
 @keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
 
+/* ── TAB SWITCH ANIMATIONS ── */
+.bn{transition:color .15s,background .15s,transform .12s}
+.bn:active{transform:scale(.88)}
+#content.tab-out{opacity:0;transform:translateX(var(--tx));transition:opacity .16s ease,transform .16s ease;pointer-events:none}
+@keyframes tabEnterR{from{opacity:0;transform:translateX(28px)}to{opacity:1;transform:none}}
+@keyframes tabEnterL{from{opacity:0;transform:translateX(-28px)}to{opacity:1;transform:none}}
+#content.tab-in-r{animation:tabEnterR .22s cubic-bezier(.25,.46,.45,.94)}
+#content.tab-in-l{animation:tabEnterL .22s cubic-bezier(.25,.46,.45,.94)}
+
 @media(max-width:640px){
   .sum-strip{grid-template-columns:1fr 1fr}
   .bot-grid,.mini-bot-grid,.bot-breakdown{grid-template-columns:1fr}
@@ -389,16 +398,35 @@ tr.new-row{animation:slideUp .3s ease}
    NAVIGATION — single page, no reloads ever
 ════════════════════════════════════════════════════════════ */
 let curSec = 'dashboard';
+const SEC_ORDER = ['dashboard', 'trading', 'account', 'scanner'];
 
 function go(sec) {
-  document.querySelectorAll('.sec').forEach(s => s.classList.remove('active'));
-  document.getElementById('sec-' + sec).classList.add('active');
-  document.querySelectorAll('.bn').forEach(b => b.classList.remove('cur'));
-  document.querySelector('.bn[data-sec="' + sec + '"]').classList.add('cur');
-  document.getElementById('content').scrollTop = 0;
-  curSec = sec;
-  if (sec === 'account') refreshAccountChart();
-  renderAll();
+  if (sec === curSec) return;
+  const oldIdx = SEC_ORDER.indexOf(curSec);
+  const newIdx = SEC_ORDER.indexOf(sec);
+  const dir    = newIdx > oldIdx ? 1 : -1;
+  const content = document.getElementById('content');
+
+  // Slide out
+  content.style.setProperty('--tx', (dir * 22) + 'px');
+  content.classList.add('tab-out');
+
+  setTimeout(() => {
+    // Switch section
+    document.querySelectorAll('.sec').forEach(s => s.classList.remove('active'));
+    document.getElementById('sec-' + sec).classList.add('active');
+    document.querySelectorAll('.bn').forEach(b => b.classList.remove('cur'));
+    document.querySelector('.bn[data-sec="' + sec + '"]').classList.add('cur');
+    content.scrollTop = 0;
+    curSec = sec;
+    if (sec === 'account') refreshAccountChart();
+    renderAll();
+
+    // Slide in from opposite direction
+    content.classList.remove('tab-out');
+    content.classList.add(dir > 0 ? 'tab-in-r' : 'tab-in-l');
+    setTimeout(() => content.classList.remove('tab-in-r', 'tab-in-l'), 240);
+  }, 160);
 }
 
 /* ════════════════════════════════════════════════════════════
