@@ -150,10 +150,10 @@
     <div class="logo-text">AI <span>Trading</span> Bot</div>
   </div>
   <nav>
-    <a href="index.html"   class="nav-link">Dashboard</a>
-    <a href="trading.html" class="nav-link active">Live Trading</a>
-    <a href="account.html" class="nav-link">Account</a>
-    <a href="scanner.html" class="nav-link">Scanner</a>
+    <a class="nav-link"        onclick="location.href='index.html'">Dashboard</a>
+    <a class="nav-link active" onclick="location.href='trading.html'">Live Trading</a>
+    <a class="nav-link"        onclick="location.href='account.html'">Account</a>
+    <a class="nav-link"        onclick="location.href='scanner.html'">Scanner</a>
   </nav>
   <div class="pill"><div class="pdot"></div>4 BOTS LIVE</div>
 </header>
@@ -307,10 +307,10 @@
 
 <!-- BOTTOM NAV -->
 <nav id="bnav">
-  <a href="index.html"   class="bn">    <span class="bn-ic">🏠</span>Dashboard</a>
-  <a href="trading.html" class="bn cur"><span class="bn-ic">🤖</span>Live Bot</a>
-  <a href="account.html" class="bn">    <span class="bn-ic">💰</span>Account</a>
-  <a href="scanner.html" class="bn">    <span class="bn-ic">🔍</span>Scanner</a>
+  <a class="bn"     onclick="location.href='index.html'">  <span class="bn-ic">🏠</span>Dashboard</a>
+  <a class="bn cur" onclick="location.href='trading.html'"><span class="bn-ic">🤖</span>Live Bot</a>
+  <a class="bn"     onclick="location.href='account.html'"><span class="bn-ic">💰</span>Account</a>
+  <a class="bn"     onclick="location.href='scanner.html'"><span class="bn-ic">🔍</span>Scanner</a>
 </nav>
 
 <script>
@@ -596,7 +596,36 @@ setTimeout(() => botTick(BOTS.mayhem,   0.8), 1200);
 setTimeout(() => botTick(BOTS.newcoins, 0.7), 2400);
 setTimeout(() => botTick(BOTS.highcap,  0.6), 3600);
 
+/* ── PERSIST STATE ── */
+function saveState() {
+  const snap = {};
+  Object.values(BOTS).forEach(b => {
+    snap[b.id] = { balance: b.balance, trades: b.trades, wins: b.wins, losses: b.losses, totalPnl: b.totalPnl };
+  });
+  snap._tradeCount = totalTradeCount;
+  try { sessionStorage.setItem('botState', JSON.stringify(snap)); } catch(_) {}
+}
+
+function loadState() {
+  try {
+    const snap = JSON.parse(sessionStorage.getItem('botState') || 'null');
+    if (!snap) return;
+    Object.values(BOTS).forEach(b => {
+      if (snap[b.id]) {
+        b.balance   = snap[b.id].balance;
+        b.trades    = snap[b.id].trades;
+        b.wins      = snap[b.id].wins;
+        b.losses    = snap[b.id].losses;
+        b.totalPnl  = snap[b.id].totalPnl;
+      }
+    });
+    totalTradeCount = snap._tradeCount || 0;
+  } catch(_) {}
+}
+
+loadState();
 tick(); // initial render
+setInterval(saveState, 3000);
 </script>
 </body>
 </html>
