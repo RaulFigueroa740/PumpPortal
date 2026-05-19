@@ -636,9 +636,19 @@ let S = {
 
 function saveState() {
   try {
+    // For any bot with an open position, fold that position's current value
+    // back into the balance before saving so a refresh doesn't lose the money
+    const botsSnap = {};
+    Object.keys(S.bots).forEach(id => {
+      const bot = S.bots[id];
+      const rt  = runtime[id];
+      let bal   = bot.balance;
+      if (rt.pos) bal += rt.pos.qty * prices[rt.pos.coin.sym].cur;
+      botsSnap[id] = { ...bot, balance: bal };
+    });
     const toSave = {
       startDate: S.startDate,
-      bots: S.bots,
+      bots: botsSnap,
       equityHist: S.equityHist.slice(-600),
       tradeLog: S.tradeLog.slice(0, 200),
     };
