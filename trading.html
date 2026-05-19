@@ -363,13 +363,16 @@ ALL_COINS.forEach(c => {
   c.pricePct = 0;
 });
 
-const SOL = 155;
+/* dedicated price map — always reflects latest tick */
+const PRICES = {};
+ALL_COINS.forEach(c => { PRICES[c.sym] = c.price; });
 
 function tickPrices() {
   ALL_COINS.forEach(c => {
     const v = c.pool === 'mayhem' ? 0.14 : c.pool === 'newcoins' ? 0.10 : c.pool === 'highcap' ? 0.04 : 0.08;
     const d = (Math.random() - 0.46) * v;
     c.price = Math.max(0.000001, c.price * (1 + d));
+    PRICES[c.sym] = c.price;
     c.pricePct = ((c.price - c.initPrice) / c.initPrice) * 100;
     c.mc = Math.max(500, c.mc * (1 + d * 0.5));
   });
@@ -416,9 +419,10 @@ function openPos(bot) {
   const coins = poolCoins(bot.id);
   if (!coins.length || bot.balance < 10) return false;
   const coin = pick(coins);
-  const size = Math.min(bot.balance * (0.15 + Math.random() * 0.35), bot.balance);
-  const qty  = size / coin.price;
-  bot.pos = { coin, entry: coin.price, size, qty, ts: Date.now() };
+  const entryPrice = PRICES[coin.sym];          // snapshot — pure number, no object ref
+  const size = Math.min(bot.balance * (0.20 + Math.random() * 0.30), bot.balance);
+  const qty  = size / entryPrice;
+  bot.pos = { sym: coin.sym, name: coin.name, entryPrice, size, qty, ts: Date.now() };
   bot.balance -= size;
   setStatus(bot.id, 'buying');
   setCardActive(bot.id, true);
@@ -429,24 +433,24 @@ function openPos(bot) {
 /* ── CLOSE POSITION ── */
 function closePos(bot) {
   if (!bot.pos) return;
-  const { coin, entry, size, qty } = bot.pos;
-  const exit  = coin.price;
-  const value = qty * exit;
-  const pnl   = value - size;
-  const ret   = ((value / size) - 1) * 100;
+  const { sym, name, entryPrice, size, qty } = bot.pos;
+  const exitPrice = PRICES[sym];                // current price from live map
+  const value     = qty * exitPrice;
+  const pnl       = value - size;
+  const ret       = ((exitPrice / entryPrice) - 1) * 100;
 
-  bot.balance += value;
+  bot.balance  += value;
   bot.trades++;
   bot.totalPnl += pnl;
   if (pnl >= 0) bot.wins++; else bot.losses++;
 
   const tr = {
     botId: bot.id, botName: bot.name, botColor: bot.color,
-    num: ++totalTradeCount, sym: coin.sym, name: coin.name,
-    entry, exit, size, pnl, ret, ts: Date.now(),
+    num: ++totalTradeCount, sym, name,
+    entry: entryPrice, exit: exitPrice, size, pnl, ret, ts: Date.now(),
   };
   allTradeLog.unshift(tr);
-  pushFeed(bot, 'S', coin.sym, pnl);
+  pushFeed(bot, 'S', sym, pnl);
   addTableRow(tr);
   bot.pos = null;
   setStatus(bot.id, 'scanning');
@@ -478,22 +482,23 @@ function updatePosUI(bot) {
     posEl.innerHTML = '<span class="bc-pos-empty">No position open</span>';
     return;
   }
-  const cur  = bot.pos.coin.price;
-  const uPnl = (bot.pos.qty * cur) - bot.pos.size;
+  const cur    = PRICES[bot.pos.sym];
+  const uPnl   = (bot.pos.qty * cur) - bot.pos.size;
   const pnlCls = uPnl >= 0 ? 'g' : 'r';
   posEl.innerHTML = `
-    <span class="bc-pos-coin">${bot.pos.coin.sym}</span>
-    <span class="bc-pos-detail">${bot.pos.coin.name} · $${cur.toFixed(8)}</span>
+    <span class="bc-pos-coin">${bot.pos.sym}</span>
+    <span class="bc-pos-detail">${bot.pos.name} · $${cur.toFixed(8)}</span>
     <span class="bc-pos-pnl ${pnlCls}">${uPnl >= 0 ? '+$' : '-$'}${Math.abs(uPnl).toFixed(2)}</span>
   `;
 }
 
 /* ── CARD STATS UI ── */
 function updateCardUI(bot) {
-  const unrealized = bot.pos ? (bot.pos.qty * bot.pos.coin.price) - bot.pos.size : 0;
+  const curPrice   = bot.pos ? PRICES[bot.pos.sym] : 0;
+  const unrealized = bot.pos ? (bot.pos.qty * curPrice) - bot.pos.size : 0;
   const totalPnl   = bot.totalPnl + unrealized;
   const pnlCls     = totalPnl >= 0 ? 'g' : 'r';
-  const liveVal    = bot.balance + (bot.pos ? bot.pos.qty * bot.pos.coin.price : 0);
+  const liveVal    = bot.balance + (bot.pos ? bot.pos.qty * curPrice : 0);
 
   el('bal-'   + bot.id).textContent = '$' + liveVal.toFixed(2);
   el('pnl-'   + bot.id).textContent = (totalPnl >= 0 ? '+$' : '-$') + Math.abs(totalPnl).toFixed(2);
@@ -507,10 +512,10 @@ function updateCardUI(bot) {
 /* ── SUMMARY BAR ── */
 function updateSummary() {
   const bList  = Object.values(BOTS);
-  const total  = bList.reduce((s,b) => s + b.balance + (b.pos ? b.pos.qty * b.pos.coin.price : 0), 0);
+  const total  = bList.reduce((s,b) => s + b.balance + (b.pos ? b.pos.qty * PRICES[b.pos.sym] : 0), 0);
   const startTotal = bList.reduce((s,b) => s + b.start, 0);
   const totalPnl   = bList.reduce((s,b) => {
-    const unreal = b.pos ? (b.pos.qty * b.pos.coin.price) - b.pos.size : 0;
+    const unreal = b.pos ? (b.pos.qty * PRICES[b.pos.sym]) - b.pos.size : 0;
     return s + b.totalPnl + unreal;
   }, 0);
   const pct    = (totalPnl / startTotal) * 100;
@@ -520,7 +525,7 @@ function updateSummary() {
   const active = bList.filter(b => b.pos).length;
 
   const bestBot = bList.reduce((best, b) => {
-    const unreal = b.pos ? (b.pos.qty * b.pos.coin.price) - b.pos.size : 0;
+    const unreal = b.pos ? (b.pos.qty * PRICES[b.pos.sym]) - b.pos.size : 0;
     const v = b.totalPnl + unreal;
     return v > best.val ? { val: v, bot: b } : best;
   }, { val: -Infinity, bot: null });
@@ -592,11 +597,11 @@ function tick() {
   updateSummary();
 }
 
-// stagger bot starts
+// stagger bot starts — always run tickPrices before botTick
 setTimeout(() => setInterval(tick, 1500), 0);
-setTimeout(() => botTick(BOTS.mayhem,   0.95), 800);
-setTimeout(() => botTick(BOTS.newcoins, 0.90), 1600);
-setTimeout(() => botTick(BOTS.highcap,  0.80), 2400);
+setTimeout(() => { tickPrices(); botTick(BOTS.mayhem,   0.95); updateSummary(); }, 800);
+setTimeout(() => { tickPrices(); botTick(BOTS.newcoins, 0.90); updateSummary(); }, 1600);
+setTimeout(() => { tickPrices(); botTick(BOTS.highcap,  0.80); updateSummary(); }, 2400);
 
 /* ── PERSIST STATE ── */
 function saveState() {
