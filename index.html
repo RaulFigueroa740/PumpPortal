@@ -164,7 +164,14 @@ tr.new-row{animation:slideUp .3s ease}
 
 .chart-card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px;margin-bottom:16px}
 .chart-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
-#acct-chart{width:100%;height:160px}
+#acct-chart{width:100%;height:280px}
+.top-moves{margin-top:14px;display:flex;flex-direction:column;gap:6px}
+.top-move-row{display:flex;align-items:center;gap:10px;padding:7px 10px;border-radius:8px;background:var(--card2);font-size:11px}
+.tm-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.tm-sym{font-weight:700;color:var(--bright);flex:1}
+.tm-bot{font-size:9px;color:var(--dim);flex:1}
+.tm-pnl{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:12px}
+.tm-ret{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--dim);flex-shrink:0}
 
 /* ── SCANNER ── */
 .scan-tabs{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap}
@@ -452,6 +459,7 @@ tr.new-row{animation:slideUp .3s ease}
       </div>
     </div>
     <canvas id="acct-chart"></canvas>
+    <div class="top-moves" id="top-moves"></div>
   </div>
 
   <div class="sec-title">Full Trade History</div>
@@ -970,27 +978,99 @@ function refreshAccountChart() {
   if (chartWin === 50) hist = hist.slice(-50);
   if (chartWin === 20) hist = hist.slice(-20);
 
-  const vals = hist.map(h => h.v);
-  const isUp = vals[vals.length-1] >= vals[0];
-  const col  = isUp ? '#00d4aa' : '#ff4d6d';
+  const vals   = hist.map(h => h.v);
+  const isUp   = vals[vals.length - 1] >= vals[0];
+  const col    = isUp ? '#00d4aa' : '#ff4d6d';
+  const labels = vals.map((_, i) => i);
+
+  // ── find big trades that fall within this time window ──
+  const winStart = hist.length ? hist[0].t : 0;
+  const winEnd   = hist.length ? hist[hist.length - 1].t : Infinity;
+  const tradesInWindow = S.tradeLog.filter(tr => tr.ts >= winStart && tr.ts <= winEnd);
+
+  // threshold = top 30% by absolute P&L (min $2)
+  const sorted    = [...tradesInWindow].sort((a, b) => Math.abs(b.pnl) - Math.abs(a.pnl));
+  const cutoff    = sorted.length ? Math.max(2, Math.abs(sorted[Math.floor(sorted.length * 0.3)].pnl)) : 999;
+  const bigTrades = tradesInWindow.filter(tr => Math.abs(tr.pnl) >= cutoff);
+
+  // map each big trade to closest index in hist
+  const markerData = bigTrades.map(tr => {
+    let best = 0, bestDiff = Infinity;
+    hist.forEach((h, i) => { const d = Math.abs(h.t - tr.ts); if (d < bestDiff) { bestDiff = d; best = i; } });
+    return { x: best, y: hist[best] ? hist[best].v : vals[vals.length - 1], pnl: tr.pnl, sym: tr.sym, bot: tr.name };
+  });
 
   if (acctChart) { acctChart.destroy(); acctChart = null; }
   const canvas = document.getElementById('acct-chart');
   if (!canvas) return;
+
   acctChart = new Chart(canvas.getContext('2d'), {
     type: 'line',
     data: {
-      labels: vals.map((_,i)=>i),
-      datasets: [{ data: vals, borderColor: col, borderWidth: 2, pointRadius: 0, fill: true,
-        backgroundColor: ctx => { const g=ctx.chart.ctx.createLinearGradient(0,0,0,140); g.addColorStop(0,isUp?'rgba(0,212,170,.18)':'rgba(255,77,109,.18)'); g.addColorStop(1,'rgba(0,0,0,0)'); return g; },
-        tension: .4 }]
+      labels,
+      datasets: [
+        {
+          data: vals,
+          borderColor: col, borderWidth: 2.5, pointRadius: 0, fill: true, tension: .4,
+          backgroundColor: ctx => {
+            const g = ctx.chart.ctx.createLinearGradient(0, 0, 0, 280);
+            g.addColorStop(0, isUp ? 'rgba(0,212,170,.2)' : 'rgba(255,77,109,.2)');
+            g.addColorStop(1, 'rgba(0,0,0,0)');
+            return g;
+          },
+        },
+        {
+          type: 'scatter',
+          data: markerData.map(m => ({ x: m.x, y: m.y })),
+          pointRadius: markerData.map(m => Math.min(10, 5 + Math.abs(m.pnl) / 4)),
+          pointBackgroundColor: markerData.map(m => m.pnl >= 0 ? '#00d4aa' : '#ff4d6d'),
+          pointBorderColor: markerData.map(m => m.pnl >= 0 ? '#00ff9d' : '#ff7090'),
+          pointBorderWidth: 2,
+          showLine: false,
+        }
+      ]
     },
     options: {
-      responsive: false, maintainAspectRatio: false, animation: { duration: 400 },
-      plugins: { legend: { display: false }, tooltip: { backgroundColor: '#0d1117', borderColor: '#1e2d3d', borderWidth: 1, bodyColor: '#fff', bodyFont: { family: 'JetBrains Mono', size: 12 }, callbacks: { label: c=>' $'+c.raw.toFixed(2) } } },
-      scales: { x: { display: false }, y: { display: true, position: 'right', grid: { color: 'rgba(255,255,255,.04)' }, ticks: { color: '#4a5568', font: { family: 'JetBrains Mono', size: 10 }, maxTicksLimit: 5, callback: v=>'$'+v.toFixed(0) } } },
+      responsive: true, maintainAspectRatio: false, animation: { duration: 500 },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#0d1117', borderColor: '#1e2d3d', borderWidth: 1,
+          bodyColor: '#fff', bodyFont: { family: 'JetBrains Mono', size: 12 },
+          callbacks: {
+            label: ctx => {
+              if (ctx.datasetIndex === 1) {
+                const m = markerData[ctx.dataIndex];
+                return m ? ` ${m.sym}  ${m.pnl >= 0 ? '+' : ''}$${m.pnl.toFixed(2)}` : '';
+              }
+              return ' $' + ctx.raw.toFixed(2);
+            }
+          }
+        }
+      },
+      scales: {
+        x: { display: false },
+        y: { display: true, position: 'right', grid: { color: 'rgba(255,255,255,.04)' }, ticks: { color: '#4a5568', font: { family: 'JetBrains Mono', size: 10 }, maxTicksLimit: 5, callback: v => '$' + v.toFixed(0) } }
+      },
     }
   });
+
+  // ── Top moves list below chart ──
+  const topMoves = el('top-moves');
+  if (!topMoves) return;
+  const top5 = sorted.slice(0, 5);
+  if (!top5.length) { topMoves.innerHTML = ''; return; }
+  topMoves.innerHTML = `<div style="font-size:9px;color:var(--dim);letter-spacing:1.2px;text-transform:uppercase;margin-bottom:4px">Biggest Moves</div>`
+    + top5.map(tr => {
+      const cls = tr.pnl >= 0 ? 'var(--green)' : 'var(--red)';
+      return `<div class="top-move-row">
+        <div class="tm-dot" style="background:${cls}"></div>
+        <span class="tm-sym">${tr.sym}</span>
+        <span class="tm-bot">${tr.name.replace(' Bot','')}</span>
+        <span class="tm-pnl" style="color:${cls}">${tr.pnl >= 0 ? '+' : ''}$${tr.pnl.toFixed(2)}</span>
+        <span class="tm-ret">${tr.ret >= 0 ? '+' : ''}${tr.ret.toFixed(1)}%</span>
+      </div>`;
+    }).join('');
 }
 
 /* ════════════════════════════════════════════════════════════
