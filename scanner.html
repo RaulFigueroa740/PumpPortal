@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Scanner — AI Trading Bot</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap');
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #07090f; --card: #0d1117; --card2: #111827; --border: #1e2d3d;
+      --accent: #00d4aa; --accent2: #0099ff; --green: #00d4aa; --red: #ff4d6d;
+      --yellow: #ffd166; --purple: #a78bfa; --text: #e2e8f0; --dim: #4a5568; --bright: #ffffff;
+    }
+    body { background: var(--bg); color: var(--text); font-family: 'Inter', sans-serif; min-height: 100vh; }
+    body::before {
+      content: ''; position: fixed; inset: 0;
+      background-image: radial-gradient(circle, rgba(0,212,170,0.04) 1px, transparent 1px);
+      background-size: 32px 32px; pointer-events: none; z-index: 0;
+    }
+
+    header {
+      position: relative; z-index: 10;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 16px 32px; background: rgba(7,9,15,0.85);
+      backdrop-filter: blur(16px); border-bottom: 1px solid var(--border);
+    }
+    .logo-row { display: flex; align-items: center; gap: 12px; }
+    .logo-text { font-size: 18px; font-weight: 800; color: var(--bright); }
+    .logo-text span { color: var(--accent); }
+    nav { display: flex; gap: 24px; }
+    .nav-link { font-size: 13px; font-weight: 500; color: var(--dim); text-decoration: none; transition: color .2s; }
+    .nav-link:hover, .nav-link.active { color: var(--accent); }
+    .pill { display: flex; align-items: center; gap: 8px; padding: 6px 16px; background: rgba(0,212,170,0.08); border: 1px solid rgba(0,212,170,0.25); border-radius: 24px; font-size: 12px; font-weight: 600; color: var(--accent); letter-spacing: 1px; }
+    .pdot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); animation: breathe 1.3s ease-in-out infinite; }
+
+    main { position: relative; z-index: 1; max-width: 1200px; margin: 0 auto; padding: 32px 24px 80px; }
+
+    /* ── PAGE TITLE ── */
+    .page-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 28px; }
+    .page-title { font-size: 24px; font-weight: 800; color: var(--bright); }
+    .page-title span { color: var(--accent); }
+    .scan-badge { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--dim); }
+    .scan-spin { width: 16px; height: 16px; border: 2px solid rgba(0,212,170,.2); border-top-color: var(--accent); border-radius: 50%; animation: spin .8s linear infinite; }
+
+    /* ── CATEGORY TABS ── */
+    .tabs { display: flex; gap: 8px; margin-bottom: 24px; }
+    .tab { padding: 8px 18px; border-radius: 8px; font-size: 12px; font-weight: 600; cursor: pointer; border: 1px solid var(--border); color: var(--dim); background: transparent; font-family: inherit; transition: all .2s; letter-spacing: .5px; }
+    .tab:hover { border-color: var(--accent); color: var(--text); }
+    .tab.on { background: rgba(0,212,170,.1); border-color: var(--accent); color: var(--accent); }
+
+    /* ── COIN GRID ── */
+    .coin-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
+
+    /* ── COIN CARD ── */
+    .coin-card {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 16px; padding: 18px;
+      cursor: pointer; transition: all .2s;
+      position: relative; overflow: hidden;
+    }
+    .coin-card:hover { border-color: var(--accent); transform: translateY(-2px); box-shadow: 0 8px 32px rgba(0,212,170,.1); }
+    .coin-card.hot { border-color: rgba(255,77,109,.35); }
+    .coin-card.hot::before { content: '🔥 HOT'; position: absolute; top: 12px; right: 12px; font-size: 9px; font-weight: 700; color: var(--red); letter-spacing: 1px; }
+    .coin-card.new { border-color: rgba(167,139,250,.35); }
+    .coin-card.new::before { content: '✦ NEW'; position: absolute; top: 12px; right: 12px; font-size: 9px; font-weight: 700; color: var(--purple); letter-spacing: 1px; }
+    .coin-card.signal { border-color: rgba(0,212,170,.5); }
+    .coin-card.signal::before { content: '▲ BUY'; position: absolute; top: 12px; right: 12px; font-size: 9px; font-weight: 700; color: var(--green); letter-spacing: 1px; }
+
+    .coin-top { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+
+    /* coin image / avatar */
+    .coin-img-wrap {
+      width: 48px; height: 48px; border-radius: 50%;
+      flex-shrink: 0; position: relative; overflow: hidden;
+      background: var(--card2); border: 2px solid var(--border);
+    }
+    .coin-img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .coin-avatar {
+      width: 100%; height: 100%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 20px; font-weight: 800;
+    }
+
+    .coin-meta { flex: 1; min-width: 0; }
+    .coin-name { font-size: 14px; font-weight: 700; color: var(--bright); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .coin-sym  { font-size: 11px; color: var(--dim); margin-top: 2px; }
+    .coin-age  { font-size: 10px; color: var(--dim); margin-top: 1px; }
+
+    .coin-score {
+      width: 40px; height: 40px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 13px; font-weight: 800;
+      flex-shrink: 0;
+    }
+    .coin-score.BUY  { background: rgba(0,212,170,.15); color: var(--green); border: 1.5px solid rgba(0,212,170,.4); }
+    .coin-score.HOLD { background: rgba(255,209,102,.15); color: var(--yellow); border: 1.5px solid rgba(255,209,102,.4); }
+    .coin-score.SELL { background: rgba(255,77,109,.15);  color: var(--red);    border: 1.5px solid rgba(255,77,109,.4); }
+
+    .coin-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 14px; }
+    .cs { background: var(--card2); border-radius: 8px; padding: 8px 10px; }
+    .cs-lbl { font-size: 9px; color: var(--dim); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 3px; }
+    .cs-val { font-family: 'JetBrains Mono', monospace; font-size: 13px; font-weight: 700; color: var(--bright); }
+    .cs-val.g { color: var(--green); }
+    .cs-val.r { color: var(--red); }
+    .cs-val.y { color: var(--yellow); }
+
+    /* curve bar */
+    .curve-wrap { margin-bottom: 14px; }
+    .curve-head { display: flex; justify-content: space-between; font-size: 10px; color: var(--dim); margin-bottom: 4px; }
+    .curve-track { height: 5px; background: rgba(255,255,255,.06); border-radius: 3px; overflow: hidden; }
+    .curve-fill  { height: 100%; border-radius: 3px; transition: width .5s ease; }
+
+    /* action row */
+    .coin-actions { display: flex; gap: 8px; }
+    .c-btn {
+      flex: 1; padding: 8px; border-radius: 8px; font-size: 11px; font-weight: 600;
+      cursor: pointer; border: 1px solid var(--border); color: var(--dim);
+      background: transparent; font-family: inherit; transition: all .2s; letter-spacing: .5px;
+    }
+    .c-btn.buy  { border-color: rgba(0,212,170,.5); color: var(--green); }
+    .c-btn.buy:hover  { background: rgba(0,212,170,.12); }
+    .c-btn.sell { border-color: rgba(255,77,109,.5); color: var(--red); }
+    .c-btn.sell:hover { background: rgba(255,77,109,.12); }
+    .c-btn.info { }
+    .c-btn.info:hover { border-color: var(--text); color: var(--text); }
+
+    /* ── ANIMATIONS ── */
+    @keyframes breathe { 0%,100%{opacity:1} 50%{opacity:.25} }
+    @keyframes spin    { to{transform:rotate(360deg)} }
+    @keyframes fadeUp  { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:none} }
+    .fade-in { animation: fadeUp .35s ease; }
+
+    /* ── EMPTY / LOADING ── */
+    .loading { text-align: center; padding: 60px; color: var(--dim); font-size: 13px; }
+
+    @media (max-width:700px) {
+      .coin-grid { grid-template-columns: 1fr; }
+      header nav { display: none; }
+    }
+    #bnav { position: fixed; bottom: 0; left: 0; right: 0; z-index: 200; display: flex; height: 62px; background: rgba(10,13,20,0.97); backdrop-filter: blur(20px); border-top: 1px solid #1e2d3d; }
+    .bn { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; text-decoration: none; color: #4a5568; font-size: 10px; font-weight: 600; letter-spacing: 0.4px; transition: all 0.18s; border-right: 1px solid #1e2d3d; }
+    .bn:last-child { border-right: none; }
+    .bn:hover { color: #e2e8f0; background: rgba(255,255,255,0.03); }
+    .bn.cur { color: #00d4aa; }
+    .bn-ic { font-size: 20px; line-height: 1; }
+    main { padding-bottom: 80px; }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo-row">
+    <svg width="36" height="36" viewBox="0 0 42 42" fill="none">
+      <rect x="8" y="13" width="26" height="20" rx="5" fill="#0d1117" stroke="#00d4aa" stroke-width="1.5"/>
+      <rect x="13" y="19" width="5" height="5" rx="1.5" fill="#00d4aa"><animate attributeName="opacity" values="1;.2;1" dur="2s" repeatCount="indefinite"/></rect>
+      <rect x="24" y="19" width="5" height="5" rx="1.5" fill="#00d4aa"><animate attributeName="opacity" values="1;.2;1" dur="2s" begin=".3s" repeatCount="indefinite"/></rect>
+      <rect x="16" y="27" width="10" height="2.5" rx="1.25" fill="#00d4aa" opacity=".5"/>
+      <rect x="19" y="8"  width="4"  height="5"   rx="2"    fill="#00d4aa"/>
+      <circle cx="21" cy="7" r="2" fill="#00d4aa"/>
+      <rect x="2"  y="18" width="6" height="2.5" rx="1.25" fill="#1e2d3d"/>
+      <rect x="34" y="18" width="6" height="2.5" rx="1.25" fill="#1e2d3d"/>
+    </svg>
+    <div class="logo-text">AI <span>Trading</span> Bot</div>
+  </div>
+  <nav>
+    <a href="index.html"   class="nav-link">Dashboard</a>
+    <a href="trading.html" class="nav-link">Live Trading</a>
+    <a href="account.html" class="nav-link">Account</a>
+    <a href="scanner.html" class="nav-link active">Scanner</a>
+  </nav>
+  <div class="pill"><div class="pdot"></div>LIVE SCANNER</div>
+</header>
+
+<main>
+  <div class="page-head">
+    <div class="page-title">Coin <span>Scanner</span></div>
+    <div class="scan-badge"><div class="scan-spin"></div><span id="scan-label">Scanning market…</span></div>
+  </div>
+
+  <!-- Category tabs -->
+  <div class="tabs">
+    <button class="tab on" data-cat="all">All Coins</button>
+    <button class="tab" data-cat="new">New Launches</button>
+    <button class="tab" data-cat="hot">Hot / Mayhem</button>
+    <button class="tab" data-cat="signal">AI Buy Signals</button>
+  </div>
+
+  <!-- Coin grid -->
+  <div class="coin-grid" id="coin-grid">
+    <div class="loading">Scanning for promising coins…</div>
+  </div>
+</main>
+
+<script>
+'use strict';
+
+/* ── COIN DATA ───────────────────────────────────────────────────── */
+const RAW_COINS = [
+  { name:'BONK Reborn',   sym:'BONKR',   emoji:'🐕', age: 4,  cat:'hot'    },
+  { name:'Pepe Moon',     sym:'PEPEM',   emoji:'🐸', age: 8,  cat:'new'    },
+  { name:'Doge AI',       sym:'DOAI',    emoji:'🤖', age:22,  cat:'hot'    },
+  { name:'Frog Lord',     sym:'FRGL',    emoji:'🐸', age: 2,  cat:'new'    },
+  { name:'Moon Wolf',     sym:'MWLF',    emoji:'🐺', age:45,  cat:'all'    },
+  { name:'Turbo Cat',     sym:'TRBC',    emoji:'🐱', age:12,  cat:'hot'    },
+  { name:'Cyber Rat',     sym:'CYRT',    emoji:'🐀', age: 6,  cat:'new'    },
+  { name:'Alpha Bull',    sym:'ABUL',    emoji:'🐂', age:18,  cat:'signal' },
+  { name:'Neon Ape',      sym:'NAPE',    emoji:'🦍', age: 3,  cat:'new'    },
+  { name:'Void Fish',     sym:'VDFS',    emoji:'🐟', age:90,  cat:'all'    },
+  { name:'Dark Horse',    sym:'DKHS',    emoji:'🐴', age:55,  cat:'hot'    },
+  { name:'Pixel Chad',    sym:'PXCH',    emoji:'😎', age: 7,  cat:'new'    },
+  { name:'Quantum Dog',   sym:'QTDG',    emoji:'🐕', age:30,  cat:'signal' },
+  { name:'Laser Bear',    sym:'LSBR',    emoji:'🐻', age: 1,  cat:'new'    },
+  { name:'Meme King',     sym:'MMKG',    emoji:'👑', age:14,  cat:'hot'    },
+  { name:'Chad Lord',     sym:'CHDL',    emoji:'💪', age: 5,  cat:'new'    },
+  { name:'Rocket Ape',    sym:'RKTAPE',  emoji:'🚀', age:20,  cat:'signal' },
+  { name:'Sonic Bull',    sym:'SNBL',    emoji:'⚡', age: 9,  cat:'new'    },
+  { name:'Turbo Pepe',    sym:'TBPP',    emoji:'🐸', age:60,  cat:'hot'    },
+  { name:'Moon Chad',     sym:'MNCD',    emoji:'🌙', age: 4,  cat:'new'    },
+  { name:'Sigma Bull',    sym:'SGBL',    emoji:'📈', age:16,  cat:'signal' },
+  { name:'Giga Chad',     sym:'GGCH',    emoji:'💎', age: 2,  cat:'new'    },
+  { name:'Based Dog',     sym:'BSDG',    emoji:'🐕', age:80,  cat:'all'    },
+  { name:'Hyper Cat',     sym:'HPCT',    emoji:'🐱', age: 3,  cat:'new'    },
+  { name:'Zero Frog',     sym:'ZKFG',    emoji:'🐸', age:11,  cat:'hot'    },
+  { name:'Gremlin',       sym:'GREMLN',  emoji:'👾', age: 1,  cat:'new'    },
+  { name:'Vibe Cat',      sym:'VBCT',    emoji:'😸', age:25,  cat:'signal' },
+  { name:'Alpha Dog',     sym:'ALPHR',   emoji:'🐶', age: 7,  cat:'new'    },
+];
+
+/* ── STATE ───────────────────────────────────────────────────────── */
+const coins = RAW_COINS.map(c => ({
+  ...c,
+  price:     0.000005 + Math.random() * 0.001,
+  initPrice: 0,
+  pricePct:  0,
+  volume:    5  + Math.random() * 200,
+  volSpike:  1  + Math.random() * 4,
+  curvePct:  10 + Math.random() * 75,
+  mcSol:     28 + Math.random() * 60,
+  score:     0,
+  signal:    'HOLD',
+}));
+coins.forEach(c => { c.initPrice = c.price * (0.5 + Math.random() * 0.8); c.pricePct = ((c.price - c.initPrice) / c.initPrice) * 100; });
+
+/* Score each coin */
+function scoreAll() {
+  coins.forEach(c => {
+    let s = 0;
+    if (c.pricePct > 0)           s += 30;
+    if (c.volSpike >= 3)          s += 25;
+    else if (c.volSpike >= 2)     s += 15;
+    if (c.curvePct >= 20 && c.curvePct <= 85) s += 15;
+    if (c.pricePct > 30)          s += 20;
+    else if (c.pricePct > 15)     s += 10;
+    if (c.age < 15)               s += 5;
+    c.score  = Math.min(100, Math.max(0, Math.round(s)));
+    c.signal = c.score > 55 ? 'BUY' : c.score < 30 ? 'SELL' : 'HOLD';
+  });
+}
+
+function tickPrices() {
+  coins.forEach(c => {
+    const d = (Math.random() - 0.47) * 0.04;
+    c.price    = Math.max(0.0000001, c.price * (1 + d));
+    c.pricePct = ((c.price - c.initPrice) / c.initPrice) * 100;
+    c.volSpike = Math.max(0.1, c.volSpike + (Math.random() - 0.5) * 0.3);
+    c.curvePct = Math.min(99, Math.max(1, c.curvePct + (Math.random() - 0.48) * 1.5));
+  });
+}
+
+/* ── HELPERS ─────────────────────────────────────────────────────── */
+function fmtAge(m) { if (m < 60) return m + 'm'; return (m/60).toFixed(1) + 'h'; }
+function fmtUSD(n) { if (n < 0.0001) return '$' + n.toFixed(8); if (n < 1) return '$' + n.toFixed(4); return '$' + n.toFixed(2); }
+const SOL = 155;
+
+/* ── CARD RENDER ─────────────────────────────────────────────────── */
+let activeTab = 'all';
+
+function cardCls(c) {
+  if (c.signal === 'BUY') return 'signal';
+  if (c.volSpike >= 3)    return 'hot';
+  if (c.age < 10)         return 'new';
+  return '';
+}
+
+function curveColor(pct) {
+  if (pct > 80) return '#ff4d6d';
+  if (pct > 55) return '#ffd166';
+  return '#00d4aa';
+}
+
+function reasonText(c) {
+  const lines = [];
+  if (c.signal === 'BUY')   lines.push('Strong buy momentum');
+  if (c.volSpike >= 3)      lines.push(`Volume spiked ${c.volSpike.toFixed(1)}x`);
+  if (c.pricePct > 20)      lines.push(`Price +${c.pricePct.toFixed(0)}%`);
+  if (c.age < 10)           lines.push('Very new token');
+  if (c.curvePct >= 20 && c.curvePct <= 85) lines.push('Curve in sweet spot');
+  return lines.slice(0, 2).join(' · ') || 'Monitoring…';
+}
+
+function renderCoin(c) {
+  const pctCls = c.pricePct >= 0 ? 'g' : 'r';
+  const pctStr = (c.pricePct >= 0 ? '+' : '') + c.pricePct.toFixed(1) + '%';
+  const cvCol  = curveColor(c.curvePct);
+  const mcUSD  = c.mcSol * SOL;
+  const extra  = cardCls(c);
+  const reason = reasonText(c);
+
+  return `<div class="coin-card ${extra} fade-in" data-sym="${c.sym}">
+    <div class="coin-top">
+      <div class="coin-img-wrap">
+        <div class="coin-avatar" style="background:${avatarBg(c.sym)}">${c.emoji}</div>
+      </div>
+      <div class="coin-meta">
+        <div class="coin-name">${c.name}</div>
+        <div class="coin-sym">$${c.sym}</div>
+        <div class="coin-age">⏱ ${fmtAge(c.age)} old</div>
+      </div>
+      <div class="coin-score ${c.signal}">${c.score}</div>
+    </div>
+
+    <div class="coin-stats">
+      <div class="cs">
+        <div class="cs-lbl">Price</div>
+        <div class="cs-val">${fmtUSD(c.price * SOL)}</div>
+      </div>
+      <div class="cs">
+        <div class="cs-lbl">Change</div>
+        <div class="cs-val ${pctCls}">${pctStr}</div>
+      </div>
+      <div class="cs">
+        <div class="cs-lbl">Vol Spike</div>
+        <div class="cs-val ${c.volSpike >= 3 ? 'g' : c.volSpike >= 2 ? 'y' : ''}">${c.volSpike.toFixed(1)}x</div>
+      </div>
+      <div class="cs">
+        <div class="cs-lbl">Mkt Cap</div>
+        <div class="cs-val">${mcUSD >= 1000 ? '$' + (mcUSD/1000).toFixed(1) + 'K' : '$' + mcUSD.toFixed(0)}</div>
+      </div>
+    </div>
+
+    <div class="curve-wrap">
+      <div class="curve-head">
+        <span>Bonding Curve</span>
+        <span style="color:${cvCol}">${c.curvePct.toFixed(0)}%</span>
+      </div>
+      <div class="curve-track">
+        <div class="curve-fill" style="width:${c.curvePct.toFixed(0)}%;background:${cvCol}"></div>
+      </div>
+    </div>
+
+    <div style="font-size:10px;color:var(--dim);margin-bottom:12px;font-style:italic">${reason}</div>
+
+    <div class="coin-actions">
+      <button class="c-btn buy"  onclick="trade('buy','${c.sym}','${c.name}')">▲ Buy</button>
+      <button class="c-btn info" onclick="info('${c.sym}')">Details</button>
+      <button class="c-btn sell" onclick="trade('sell','${c.sym}','${c.name}')">▼ Sell</button>
+    </div>
+  </div>`;
+}
+
+function avatarBg(sym) {
+  const hues = [];
+  for (let i = 0; i < sym.length; i++) hues.push(sym.charCodeAt(i));
+  const h = hues.reduce((a, b) => a + b, 0) % 360;
+  return `linear-gradient(135deg, hsl(${h},60%,18%), hsl(${(h+40)%360},60%,12%))`;
+}
+
+/* ── RENDER GRID ─────────────────────────────────────────────────── */
+function renderGrid() {
+  scoreAll();
+  let list = [...coins];
+
+  if (activeTab === 'new')    list = list.filter(c => c.age < 30).sort((a,b) => a.age - b.age);
+  else if (activeTab === 'hot')    list = list.filter(c => c.volSpike >= 2 || Math.abs(c.pricePct) > 20).sort((a,b) => b.volSpike - a.volSpike);
+  else if (activeTab === 'signal') list = list.filter(c => c.signal === 'BUY').sort((a,b) => b.score - a.score);
+  else list.sort((a, b) => b.score - a.score);
+
+  const grid = document.getElementById('coin-grid');
+  if (!list.length) {
+    grid.innerHTML = '<div class="loading">No coins match this filter right now.</div>';
+    return;
+  }
+  grid.innerHTML = list.map(renderCoin).join('');
+  document.getElementById('scan-label').textContent = `${coins.length} coins scanned · ${coins.filter(c=>c.signal==='BUY').length} buy signals`;
+}
+
+/* ── ACTIONS ─────────────────────────────────────────────────────── */
+function trade(side, sym, name) {
+  const c   = coins.find(x => x.sym === sym);
+  const p   = c ? (c.price * SOL).toFixed(6) : '–';
+  const msg = side === 'buy'
+    ? `🟢 BUY Order\n${name} ($${sym})\nPrice: $${p}\n\nThis is a paper trade — no real money involved.`
+    : `🔴 SELL Order\n${name} ($${sym})\nPrice: $${p}\n\nThis is a paper trade — no real money involved.`;
+  alert(msg);
+}
+
+function info(sym) {
+  const c = coins.find(x => x.sym === sym);
+  if (!c) return;
+  alert(`${c.emoji} ${c.name} ($${c.sym})\n\nScore: ${c.score}/100 — ${c.signal}\nAge: ${fmtAge(c.age)}\nCurve: ${c.curvePct.toFixed(1)}%\nVol Spike: ${c.volSpike.toFixed(1)}x\nChange: ${c.pricePct.toFixed(1)}%\n\n${reasonText(c)}`);
+}
+
+/* ── TABS ── */
+document.querySelectorAll('.tab').forEach(t => {
+  t.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(x => x.classList.remove('on'));
+    t.classList.add('on');
+    activeTab = t.dataset.cat;
+    renderGrid();
+  });
+});
+
+/* ── LIVE UPDATES ── */
+scoreAll();
+renderGrid();
+
+setInterval(() => {
+  tickPrices();
+  // slightly age all coins
+  coins.forEach(c => { c.age += 1/60; });
+  renderGrid();
+}, 3000);
+</script>
+<nav id="bnav">
+  <a href="index.html"   class="bn">    <span class="bn-ic">🏠</span>Dashboard</a>
+  <a href="trading.html" class="bn">    <span class="bn-ic">🤖</span>Live Bot</a>
+  <a href="account.html" class="bn">    <span class="bn-ic">💰</span>Account</a>
+  <a href="scanner.html" class="bn cur"><span class="bn-ic">🔍</span>Scanner</a>
+</nav>
+</body>
+</html>
