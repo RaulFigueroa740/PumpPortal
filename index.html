@@ -1,0 +1,1430 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>pump-radar // AI Trading Dashboard</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:          #080808;
+      --bg1:         #0e0e0e;
+      --bg2:         #141414;
+      --bg3:         #1c1c1c;
+      --border:      #1a1a1a;
+      --border2:     #252525;
+      --accent:      #1D9E75;
+      --accent-dim:  rgba(29,158,117,0.12);
+      --accent-glow: rgba(29,158,117,0.35);
+      --text:        #c8c8c8;
+      --text-dim:    #484848;
+      --text-bright: #f0f0f0;
+      --green:       #1D9E75;
+      --green-hi:    #26c98f;
+      --red:         #d94f4f;
+      --yellow:      #d99e46;
+      --blue:        #4f7fd9;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 12px;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* ── SCAN OVERLAY ──────────────────────────────────────────────── */
+    #scan-overlay {
+      position: fixed; inset: 0;
+      background: var(--bg);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+      transition: opacity 0.6s ease;
+    }
+
+    .scan-logo {
+      font-size: 30px;
+      font-weight: 700;
+      color: var(--accent);
+      letter-spacing: 10px;
+      margin-bottom: 6px;
+      text-shadow: 0 0 30px var(--accent-glow), 0 0 60px rgba(29,158,117,0.15);
+    }
+
+    .scan-tagline {
+      font-size: 10px;
+      color: var(--text-dim);
+      letter-spacing: 5px;
+      margin-bottom: 44px;
+    }
+
+    .scan-terminal {
+      width: 500px;
+      background: var(--bg1);
+      border: 1px solid var(--border2);
+      border-radius: 4px;
+      padding: 14px 16px;
+      margin-bottom: 28px;
+      min-height: 130px;
+    }
+
+    .scan-terminal-bar {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 12px;
+    }
+
+    .term-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+    }
+    .term-dot.r { background: #d94f4f; }
+    .term-dot.y { background: #d9994f; }
+    .term-dot.g { background: #1D9E75; }
+
+    .scan-line {
+      font-size: 11px;
+      color: var(--accent);
+      margin-bottom: 3px;
+      opacity: 0;
+      transform: translateY(4px);
+      transition: opacity 0.25s ease, transform 0.25s ease;
+    }
+    .scan-line.show { opacity: 1; transform: none; }
+    .scan-line.muted { color: var(--text-dim); }
+    .scan-line.live { color: var(--green-hi); }
+
+    .scan-prog-wrap { width: 500px; margin-bottom: 10px; }
+
+    .scan-prog-head {
+      display: flex;
+      justify-content: space-between;
+      font-size: 10px;
+      color: var(--text-dim);
+      margin-bottom: 6px;
+    }
+
+    .scan-prog-track {
+      height: 3px;
+      background: var(--bg3);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+
+    .scan-prog-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent), var(--green-hi));
+      width: 0%;
+      transition: width 0.4s ease;
+      box-shadow: 0 0 10px var(--accent-glow);
+    }
+
+    .scan-foot {
+      font-size: 10px;
+      color: var(--text-dim);
+      margin-top: 8px;
+      text-align: center;
+    }
+
+    /* ── APP SHELL ─────────────────────────────────────────────────── */
+    #app {
+      display: none;
+      flex-direction: column;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* ── HEADER ────────────────────────────────────────────────────── */
+    #hdr {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 7px 16px;
+      background: var(--bg1);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+
+    .logo {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--accent);
+      letter-spacing: 4px;
+      text-shadow: 0 0 12px var(--accent-glow);
+    }
+    .logo em { color: var(--text-dim); font-style: normal; font-weight: 400; font-size: 10px; letter-spacing: 2px; margin-left: 8px; }
+
+    .hdr-right {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+    }
+
+    .ws-pill {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 10px;
+      color: var(--text-dim);
+    }
+    .ws-dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: var(--text-dim);
+      flex-shrink: 0;
+    }
+    .ws-dot.live { background: var(--accent); box-shadow: 0 0 6px var(--accent); animation: breathe 2s ease-in-out infinite; }
+    .ws-dot.err  { background: var(--red); }
+
+    .refresh-eta { font-size: 10px; color: var(--text-dim); }
+
+    /* ── METRICS BAR ───────────────────────────────────────────────── */
+    #metrics {
+      display: flex;
+      background: var(--bg1);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+
+    .metric {
+      flex: 1;
+      padding: 7px 14px;
+      border-right: 1px solid var(--border);
+    }
+    .metric:last-child { border-right: none; }
+    .metric-lbl { font-size: 9px; color: var(--text-dim); letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 2px; }
+    .metric-val { font-size: 20px; font-weight: 700; color: var(--text-bright); }
+    .metric-val.g { color: var(--green); }
+    .metric-val.y { color: var(--yellow); }
+
+    /* ── TOOLBAR ───────────────────────────────────────────────────── */
+    #toolbar {
+      display: flex;
+      align-items: center;
+      background: var(--bg1);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+
+    #tab-bar {
+      display: flex;
+      padding: 0 8px;
+      border-right: 1px solid var(--border);
+    }
+
+    .tab {
+      padding: 9px 14px;
+      font-size: 11px;
+      color: var(--text-dim);
+      border-bottom: 2px solid transparent;
+      cursor: pointer;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      transition: color 0.15s;
+      user-select: none;
+    }
+    .tab:hover { color: var(--text); }
+    .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+    #filter-bar {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      padding: 0 14px;
+    }
+
+    .f-lbl { font-size: 9px; color: var(--text-dim); letter-spacing: 1px; text-transform: uppercase; margin-right: 2px; }
+
+    .chip {
+      padding: 3px 10px;
+      border: 1px solid var(--border2);
+      border-radius: 12px;
+      font-size: 10px;
+      color: var(--text-dim);
+      background: transparent;
+      cursor: pointer;
+      font-family: inherit;
+      letter-spacing: 0.5px;
+      transition: all 0.15s;
+      user-select: none;
+    }
+    .chip:hover { border-color: var(--accent); color: var(--text); }
+    .chip.on { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
+
+    /* ── CONTENT AREA ──────────────────────────────────────────────── */
+    #content {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    /* ── TOKEN LIST ────────────────────────────────────────────────── */
+    #list-wrap {
+      flex: 1;
+      overflow-y: auto;
+      overflow-x: auto;
+    }
+    #list-wrap::-webkit-scrollbar { width: 4px; height: 4px; }
+    #list-wrap::-webkit-scrollbar-track { background: var(--bg); }
+    #list-wrap::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+
+    .tbl { width: 100%; border-collapse: collapse; }
+
+    .tbl th {
+      position: sticky; top: 0;
+      background: var(--bg2);
+      padding: 6px 10px;
+      text-align: left;
+      font-size: 9px;
+      color: var(--text-dim);
+      letter-spacing: 1.2px;
+      text-transform: uppercase;
+      border-bottom: 1px solid var(--border2);
+      white-space: nowrap;
+      cursor: pointer;
+      user-select: none;
+    }
+    .tbl th:hover { color: var(--text); }
+    .tbl th.sorted { color: var(--accent); }
+
+    .tbl td {
+      padding: 7px 10px;
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+      vertical-align: middle;
+    }
+
+    .tok-row {
+      cursor: pointer;
+      transition: background 0.1s;
+    }
+    .tok-row:hover { background: var(--bg2); }
+    .tok-row.sel { background: var(--accent-dim); border-left: 2px solid var(--accent); }
+
+    .tok-icon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 24px; height: 24px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 700;
+      margin-right: 8px;
+      flex-shrink: 0;
+      vertical-align: middle;
+    }
+
+    .tok-name { font-size: 12px; color: var(--text-bright); display: inline; vertical-align: middle; }
+    .tok-sym  { font-size: 10px; color: var(--text-dim); display: block; padding-left: 32px; margin-top: 1px; }
+
+    .up   { color: var(--green); }
+    .down { color: var(--red); }
+    .neu  { color: var(--text-dim); }
+
+    .pct { font-weight: 700; font-size: 12px; }
+
+    .spike-tag {
+      display: inline-block;
+      font-size: 9px;
+      padding: 1px 6px;
+      border-radius: 3px;
+      font-weight: 700;
+    }
+    .spike-tag.hi  { background: rgba(29,158,117,0.18); color: var(--green); }
+    .spike-tag.mid { background: rgba(217,158,70,0.18);  color: var(--yellow); }
+    .spike-tag.lo  { background: rgba(255,255,255,0.05); color: var(--text-dim); }
+
+    .curve-wrap { display: flex; align-items: center; gap: 6px; }
+    .curve-track { width: 46px; height: 4px; background: var(--bg3); border-radius: 2px; overflow: hidden; }
+    .curve-fill  { height: 100%; border-radius: 2px; }
+
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 3px;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 1px;
+    }
+    .badge.BUY  { background: rgba(29,158,117,0.18); color: var(--green);  border: 1px solid rgba(29,158,117,0.4); }
+    .badge.HOLD { background: rgba(217,158,70,0.18);  color: var(--yellow); border: 1px solid rgba(217,158,70,0.4); }
+    .badge.SELL { background: rgba(217,79,79,0.18);   color: var(--red);    border: 1px solid rgba(217,79,79,0.4); }
+
+    .empty {
+      padding: 60px 32px;
+      text-align: center;
+      color: var(--text-dim);
+      font-size: 11px;
+      letter-spacing: 1px;
+    }
+
+    /* ── DETAIL PANEL ──────────────────────────────────────────────── */
+    #detail {
+      width: 0;
+      overflow: hidden;
+      background: var(--bg1);
+      border-left: 1px solid var(--border);
+      transition: width 0.3s cubic-bezier(0.4,0,0.2,1);
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+    }
+    #detail.open { width: 360px; }
+
+    #detail-scroll {
+      width: 360px;
+      padding: 16px;
+      overflow-y: auto;
+      flex: 1;
+    }
+    #detail-scroll::-webkit-scrollbar { width: 3px; }
+    #detail-scroll::-webkit-scrollbar-thumb { background: var(--border2); }
+
+    .d-hdr {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      margin-bottom: 14px;
+    }
+    .d-name  { font-size: 15px; font-weight: 700; color: var(--text-bright); }
+    .d-sym   { font-size: 10px; color: var(--text-dim); margin-top: 2px; }
+    .d-close {
+      cursor: pointer;
+      color: var(--text-dim);
+      font-size: 16px;
+      padding: 2px 6px;
+      border-radius: 3px;
+      transition: all 0.15s;
+      flex-shrink: 0;
+    }
+    .d-close:hover { color: var(--text); background: var(--bg3); }
+
+    .d-score-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+    .d-score-num {
+      font-size: 42px;
+      font-weight: 700;
+      line-height: 1;
+    }
+    .d-score-num.BUY  { color: var(--green); text-shadow: 0 0 20px var(--accent-glow); }
+    .d-score-num.HOLD { color: var(--yellow); }
+    .d-score-num.SELL { color: var(--red); }
+    .d-score-sub { font-size: 9px; color: var(--text-dim); letter-spacing: 1px; margin-top: 4px; }
+
+    .chart-box {
+      height: 110px;
+      background: var(--bg2);
+      border: 1px solid var(--border2);
+      border-radius: 4px;
+      padding: 8px;
+      margin-bottom: 14px;
+      position: relative;
+    }
+    .chart-no-data {
+      position: absolute; inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      color: var(--text-dim);
+      letter-spacing: 1px;
+    }
+
+    .d-stats {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+      margin-bottom: 14px;
+    }
+
+    .d-stat {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 8px 10px;
+    }
+    .d-stat-lbl { font-size: 9px; color: var(--text-dim); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 3px; }
+    .d-stat-val { font-size: 14px; color: var(--text-bright); }
+    .d-stat-val.g { color: var(--green); }
+    .d-stat-val.r { color: var(--red); }
+
+    .d-ai {
+      background: var(--accent-dim);
+      border: 1px solid rgba(29,158,117,0.25);
+      border-radius: 4px;
+      padding: 12px;
+      margin-bottom: 14px;
+    }
+    .d-ai-lbl  { font-size: 9px; color: var(--accent); letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 6px; }
+    .d-ai-text { font-size: 11px; color: var(--text); line-height: 1.65; }
+
+    .d-actions { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 7px; }
+
+    .d-btn {
+      padding: 8px 4px;
+      border: 1px solid var(--border2);
+      border-radius: 3px;
+      background: transparent;
+      color: var(--text);
+      font-family: inherit;
+      font-size: 10px;
+      cursor: pointer;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      transition: all 0.15s;
+    }
+    .d-btn:hover { border-color: var(--text); }
+    .d-btn.buy  { border-color: rgba(29,158,117,0.5); color: var(--green); }
+    .d-btn.buy:hover  { background: rgba(29,158,117,0.15); border-color: var(--green); }
+    .d-btn.sell { border-color: rgba(217,79,79,0.5);  color: var(--red); }
+    .d-btn.sell:hover { background: rgba(217,79,79,0.15); border-color: var(--red); }
+
+    /* ── REFRESH BAR ───────────────────────────────────────────────── */
+    #refresh-bar { height: 2px; background: var(--bg3); flex-shrink: 0; position: relative; }
+    #refresh-fill {
+      position: absolute; top: 0; left: 0;
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent), var(--green-hi));
+      box-shadow: 0 0 8px var(--accent-glow);
+      transition: width 1s linear;
+    }
+
+    /* ── ANIMATIONS ────────────────────────────────────────────────── */
+    @keyframes breathe {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: 0.4; }
+    }
+    @keyframes slideUp {
+      from { opacity: 0; transform: translateY(6px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .new-row { animation: slideUp 0.3s ease; }
+
+    /* ── SCROLLBAR GLOBAL ──────────────────────────────────────────── */
+    ::-webkit-scrollbar { width: 4px; height: 4px; }
+    ::-webkit-scrollbar-track { background: var(--bg); }
+    ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+
+    /* ── RESPONSIVE CLAMP ──────────────────────────────────────────── */
+    @media (max-width: 900px) {
+      #detail.open { width: 300px; }
+      #detail-scroll { width: 300px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ════════════════════════════════════════════════════════════════════
+     SCAN OVERLAY
+═══════════════════════════════════════════════════════════════════════ -->
+<div id="scan-overlay">
+  <div class="scan-logo">PUMP-RADAR</div>
+  <div class="scan-tagline">AI TRADING INTELLIGENCE</div>
+
+  <div class="scan-terminal">
+    <div class="scan-terminal-bar">
+      <div class="term-dot r"></div>
+      <div class="term-dot y"></div>
+      <div class="term-dot g"></div>
+    </div>
+    <div id="scan-lines"></div>
+  </div>
+
+  <div class="scan-prog-wrap">
+    <div class="scan-prog-head">
+      <span>SCANNING TOKENS</span>
+      <span id="scan-pct-label">0 / 50</span>
+    </div>
+    <div class="scan-prog-track">
+      <div class="scan-prog-fill" id="scan-prog-fill"></div>
+    </div>
+  </div>
+
+  <div class="scan-foot" id="scan-foot">Connecting to PumpPortal WebSocket…</div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════════
+     MAIN APP
+═══════════════════════════════════════════════════════════════════════ -->
+<div id="app">
+
+  <!-- Header -->
+  <div id="hdr">
+    <div class="logo">PUMP-RADAR <em>// AI DASHBOARD</em></div>
+    <div class="hdr-right">
+      <div class="ws-pill">
+        <div class="ws-dot" id="ws-dot"></div>
+        <span id="ws-label">disconnected</span>
+      </div>
+      <div class="refresh-eta" id="refresh-eta">–</div>
+    </div>
+  </div>
+
+  <!-- Metrics -->
+  <div id="metrics">
+    <div class="metric">
+      <div class="metric-lbl">Tokens Scanned</div>
+      <div class="metric-val" id="m-scanned">0</div>
+    </div>
+    <div class="metric">
+      <div class="metric-lbl">Qualified</div>
+      <div class="metric-val g" id="m-qualified">0</div>
+    </div>
+    <div class="metric">
+      <div class="metric-lbl">Buy Signals</div>
+      <div class="metric-val g" id="m-buys">0</div>
+    </div>
+    <div class="metric">
+      <div class="metric-lbl">New Launches</div>
+      <div class="metric-val y" id="m-launches">0</div>
+    </div>
+  </div>
+
+  <!-- Toolbar: tabs + filter chips -->
+  <div id="toolbar">
+    <div id="tab-bar">
+      <div class="tab active" data-tab="movers">Movers</div>
+      <div class="tab" data-tab="launches">New Launches</div>
+      <div class="tab" data-tab="signals">AI Signals</div>
+    </div>
+    <div id="filter-bar">
+      <span class="f-lbl">Filter:</span>
+      <button class="chip" data-f="vol2x">Vol 2x+</button>
+      <button class="chip" data-f="curve">Curve 20–90%</button>
+      <button class="chip" data-f="fresh">Under 30 min</button>
+      <button class="chip" data-f="mc">MC $10K–$80K</button>
+    </div>
+  </div>
+
+  <!-- Content -->
+  <div id="content">
+
+    <!-- Token list -->
+    <div id="list-wrap">
+      <table class="tbl">
+        <thead>
+          <tr>
+            <th data-sort="name">Token</th>
+            <th data-sort="price">Price</th>
+            <th data-sort="pct">Change %</th>
+            <th data-sort="volume">Vol (SOL)</th>
+            <th data-sort="spike">Spike</th>
+            <th data-sort="curve">Curve</th>
+            <th data-sort="age">Age</th>
+            <th data-sort="mc">Mkt Cap</th>
+            <th data-sort="score">Score</th>
+          </tr>
+        </thead>
+        <tbody id="tok-body"></tbody>
+      </table>
+    </div>
+
+    <!-- Detail panel -->
+    <div id="detail">
+      <div id="detail-scroll"></div>
+    </div>
+  </div>
+
+  <!-- Refresh progress bar -->
+  <div id="refresh-bar">
+    <div id="refresh-fill" style="width:0%"></div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════════
+     JAVASCRIPT
+═══════════════════════════════════════════════════════════════════════ -->
+<script>
+'use strict';
+
+/* ── CONFIG ────────────────────────────────────────────────────────── */
+const WS_URL        = 'wss://pumpportal.fun/api/data';
+const MIN_SCAN      = 50;
+const REFRESH_MS    = 60_000;
+const INIT_SOL      = 30;
+const INIT_TOKENS   = 1_073_000_191;
+const GRAD_SOL      = 85;
+const SOL_PRICE_DEF = 160;
+const NEW_LAUNCH_MS = 30 * 60_000;
+
+/* ── STATE ─────────────────────────────────────────────────────────── */
+const S = {
+  tokens:       {},     // mint → token obj
+  scanCount:    0,
+  scanDone:     false,
+  activeTab:    'movers',
+  filters:      new Set(),
+  selMint:      null,
+  solPrice:     SOL_PRICE_DEF,
+  ws:           null,
+  wsOk:         false,
+  chart:        null,
+  lastRefresh:  Date.now(),
+  renderPending: false,
+  sortField:    'score',
+  sortDir:      -1,
+};
+
+/* ── HELPERS ───────────────────────────────────────────────────────── */
+const $  = id => document.getElementById(id);
+const qs = sel => document.querySelector(sel);
+const cl = (el, ...c) => el.classList.add(...c);
+const rm = (el, ...c) => el.classList.remove(...c);
+
+function esc(s) {
+  return String(s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function fmt2(n)   { return Number(n).toFixed(2); }
+function fmtSol(n) { return Number(n).toFixed(3); }
+
+function fmtUsd(n) {
+  if (n < 0.000001) return '<$0.000001';
+  if (n < 0.0001)   return '$' + n.toFixed(8);
+  if (n < 0.01)     return '$' + n.toFixed(6);
+  if (n < 1)        return '$' + n.toFixed(4);
+  return '$' + n.toFixed(2);
+}
+
+function fmtMC(usd) {
+  if (usd >= 1_000_000) return '$' + (usd/1_000_000).toFixed(2) + 'M';
+  if (usd >= 1_000)     return '$' + (usd/1_000).toFixed(1) + 'K';
+  return '$' + Math.round(usd);
+}
+
+function fmtAge(ms) {
+  if (ms < 60_000)   return Math.floor(ms/1_000) + 's';
+  if (ms < 3_600_000) return Math.floor(ms/60_000) + 'm';
+  return (ms/3_600_000).toFixed(1) + 'h';
+}
+
+function tokenColor(symbol) {
+  const hues = [120, 180, 200, 260, 30, 300, 340, 60, 160, 80];
+  let h = 0;
+  for (let i = 0; i < symbol.length; i++) h = (h + symbol.charCodeAt(i)) % 360;
+  return `hsl(${h},60%,45%)`;
+}
+
+/* ── BONDING CURVE & PRICE ─────────────────────────────────────────── */
+function bondingPct(vSol, vTok) {
+  const pct = (1 - vTok / INIT_TOKENS) * 100;
+  return Math.max(0, Math.min(100, pct));
+}
+
+function calcPrice(vSol, vTok) {
+  return vTok > 0 ? vSol / vTok : 0;
+}
+
+/* ── SCORING ENGINE ────────────────────────────────────────────────── */
+function score(t) {
+  let pts = 0;
+  const reasons = [];
+
+  // +30 upward price trend
+  if (t.priceHist.length >= 2) {
+    const first = t.priceHist[0].p;
+    const last  = t.priceHist[t.priceHist.length - 1].p;
+    if (last > first) { pts += 30; reasons.push('price trending up'); }
+  }
+
+  // +25/+15 volume spike
+  const sp = t.volSpike;
+  if (sp >= 3) { pts += 25; reasons.push(`volume ${sp.toFixed(1)}x spike`); }
+  else if (sp >= 2) { pts += 15; reasons.push(`volume ${sp.toFixed(1)}x spike`); }
+
+  // +15 bonding curve sweet spot
+  const cv = t.curvePct;
+  if (cv >= 20 && cv <= 85) { pts += 15; reasons.push(`curve ${cv.toFixed(0)}% (sweet spot)`); }
+
+  // +20/+10 price change
+  const pc = t.pricePct;
+  if (pc > 30)      { pts += 20; reasons.push(`price +${pc.toFixed(0)}%`); }
+  else if (pc > 15) { pts += 10; reasons.push(`price +${pc.toFixed(0)}%`); }
+
+  // +5 very new token
+  const age = Date.now() - t.born;
+  if (age < 15 * 60_000) { pts += 5; reasons.push('token under 15 min'); }
+
+  pts = Math.max(0, Math.min(100, Math.round(pts)));
+  const signal = pts > 55 ? 'BUY' : pts < 30 ? 'SELL' : 'HOLD';
+  return { pts, signal, reasons };
+}
+
+function buildReasoning(t, reasons) {
+  const { pts, signal } = t;
+  const sp  = (t.volSpike  || 1).toFixed(1);
+  const cv  = (t.curvePct  || 0).toFixed(0);
+  const pc  = (t.pricePct  || 0).toFixed(0);
+  const br  = t.trades > 0 ? Math.round((t.buys / t.trades) * 100) : 50;
+
+  if (signal === 'BUY') {
+    return `Strong buy signal: ${reasons.slice(0, 2).join(', ')}. ` +
+      `${br}% buy pressure across ${t.trades} trades. ` +
+      (sp >= 2 ? `Vol spiked ${sp}x vs baseline. ` : '') +
+      (cv >= 20 && cv <= 85 ? `Curve at ${cv}% — graduation squeeze incoming. ` : '') +
+      `Score ${pts}/100.`;
+  }
+  if (signal === 'HOLD') {
+    return `Mixed signals: ${reasons[0] || 'no clear momentum'}. ` +
+      `Volume ${sp}x, curve ${cv}%, price ${pc > 0 ? '+' : ''}${pc}%. ` +
+      `${br}% buys. Watch for breakout. Score ${pts}/100.`;
+  }
+  return `Weak setup — low conviction. Volume ${sp}x, ${100 - br}% sell pressure. ` +
+    `Price change ${pc}%, curve ${cv}%. Wait for better entry. Score ${pts}/100.`;
+}
+
+/* ── TOKEN UPSERT ──────────────────────────────────────────────────── */
+function upsert(data) {
+  const mint = data.mint;
+  if (!mint) return;
+
+  const now   = Date.now();
+  const vSol  = data.vSolInBondingCurve  || INIT_SOL;
+  const vTok  = data.vTokensInBondingCurve || INIT_TOKENS;
+  const mcSol = data.marketCapSol || 0;
+
+  let t = S.tokens[mint];
+
+  if (!t) {
+    const ip = calcPrice(vSol, vTok);
+    t = {
+      mint,
+      name:      data.name   || mint.slice(0, 8) + '…',
+      symbol:    data.symbol || '???',
+      born:      now,
+      lastTrade: now,
+      priceHist: [{ ts: now, p: ip }],
+      curPrice:  ip,
+      initPrice: ip,
+      pricePct:  0,
+      volume:    data.solAmount || 0,
+      volSpike:  1,
+      mcSol,
+      vSol, vTok,
+      curvePct:  bondingPct(vSol, vTok),
+      trades:    data.txType === 'create' ? 0 : 1,
+      buys:      data.txType === 'buy'    ? 1 : 0,
+      sells:     data.txType === 'sell'   ? 1 : 0,
+      score:     0,
+      signal:    'HOLD',
+      reasoning: '',
+    };
+    S.tokens[mint] = t;
+    S.scanCount++;
+
+    // dynamically subscribe to this token's trades
+    wsSend({ method: 'subscribeTokenTrade', keys: [mint] });
+  } else {
+    // update bonding curve & price
+    t.vSol    = vSol;
+    t.vTok    = vTok;
+    t.curvePct = bondingPct(vSol, vTok);
+    if (mcSol) t.mcSol = mcSol;
+
+    const np = calcPrice(vSol, vTok);
+    if (np > 0) {
+      t.curPrice = np;
+      t.priceHist.push({ ts: now, p: np });
+      if (t.priceHist.length > 120) t.priceHist.shift();
+    }
+
+    if (data.solAmount) t.volume += data.solAmount;
+    t.trades++;
+    if (data.txType === 'buy')  t.buys++;
+    if (data.txType === 'sell') t.sells++;
+    t.lastTrade = now;
+
+    if (t.initPrice > 0) {
+      t.pricePct = ((t.curPrice - t.initPrice) / t.initPrice) * 100;
+    }
+  }
+
+  recalcSpikes();
+  rescoreToken(t);
+}
+
+function rescoreToken(t) {
+  const { pts, signal, reasons } = score(t);
+  t.score    = pts;
+  t.signal   = signal;
+  t.reasoning = buildReasoning(t, reasons);
+}
+
+function recalcSpikes() {
+  const vols = Object.values(S.tokens).map(t => t.volume).filter(v => v > 0);
+  if (!vols.length) return;
+  vols.sort((a, b) => a - b);
+  const med = vols[Math.floor(vols.length / 2)] || 1;
+  for (const t of Object.values(S.tokens)) {
+    t.volSpike = med > 0 ? t.volume / med : 1;
+  }
+}
+
+/* ── WEBSOCKET ─────────────────────────────────────────────────────── */
+let reconnDelay = 2000;
+
+function wsSend(msg) {
+  try {
+    if (S.ws && S.ws.readyState === WebSocket.OPEN)
+      S.ws.send(JSON.stringify(msg));
+  } catch(_) {}
+}
+
+function wsConnect() {
+  try { S.ws = new WebSocket(WS_URL); }
+  catch(e) { scheduleRecon(); return; }
+
+  S.ws.onopen = () => {
+    S.wsOk = true;
+    reconnDelay = 2000;
+    setWsDot('live', 'live');
+    wsSend({ method: 'subscribeNewToken' });
+    scanFoot('Connected — scanning live tokens…');
+  };
+
+  S.ws.onmessage = ev => {
+    try {
+      const d = JSON.parse(ev.data);
+      if (!d.mint) return;
+      upsert(d);
+      tickScan(d);
+      if (S.scanDone) scheduleRender();
+    } catch(_) {}
+  };
+
+  S.ws.onerror = () => { setWsDot('err', 'error'); };
+  S.ws.onclose = () => {
+    S.wsOk = false;
+    setWsDot('', 'reconnecting…');
+    scheduleRecon();
+  };
+}
+
+function scheduleRecon() {
+  setTimeout(wsConnect, reconnDelay);
+  reconnDelay = Math.min(reconnDelay * 2, 30_000);
+}
+
+function setWsDot(cls, label) {
+  const dot = $('ws-dot');
+  dot.className = 'ws-dot' + (cls ? ' ' + cls : '');
+  $('ws-label').textContent = label;
+}
+
+/* ── SCAN OVERLAY LOGIC ────────────────────────────────────────────── */
+const BOOT_LINES = [
+  { t: 0,    text: '> Initializing pump-radar v2.0…',          cls: '' },
+  { t: 500,  text: '> Connecting to PumpPortal WebSocket…',     cls: '' },
+  { t: 1000, text: '> Calibrating volume spike baselines…',     cls: 'muted' },
+  { t: 1500, text: '> Loading bonding curve analyzer…',         cls: 'muted' },
+  { t: 2000, text: '> Starting AI scoring engine…',             cls: 'muted' },
+  { t: 2600, text: '> Awaiting token feed…',                    cls: 'muted' },
+];
+
+let dynamicLineEl = null;
+
+function animateBootLines() {
+  const container = $('scan-lines');
+  BOOT_LINES.forEach(({ t, text, cls }) => {
+    setTimeout(() => {
+      const el = document.createElement('div');
+      el.className = 'scan-line' + (cls ? ' ' + cls : '');
+      el.textContent = text;
+      container.appendChild(el);
+      requestAnimationFrame(() => cl(el, 'show'));
+    }, t);
+  });
+
+  // dynamic token counter line
+  setTimeout(() => {
+    dynamicLineEl = document.createElement('div');
+    dynamicLineEl.className = 'scan-line live show';
+    dynamicLineEl.textContent = '> Tokens scanned: 0';
+    container.appendChild(dynamicLineEl);
+  }, 3000);
+}
+
+function tickScan(d) {
+  const n   = S.scanCount;
+  const pct = Math.min(100, (n / MIN_SCAN) * 100);
+  $('scan-prog-fill').style.width = pct + '%';
+  $('scan-pct-label').textContent = `${n} / ${MIN_SCAN}`;
+
+  if (dynamicLineEl) {
+    dynamicLineEl.textContent = `> Tokens scanned: ${n}  [${d.name || '???'}]`;
+  }
+
+  if (n >= MIN_SCAN && !S.scanDone) {
+    S.scanDone = true;
+    setTimeout(revealApp, 700);
+  }
+}
+
+function scanFoot(msg) { $('scan-foot').textContent = msg; }
+
+function revealApp() {
+  const ov = $('scan-overlay');
+  ov.style.opacity = '0';
+  setTimeout(() => {
+    ov.style.display = 'none';
+    const app = $('app');
+    app.style.display = 'flex';
+    startRefreshLoop();
+    render();
+  }, 600);
+}
+
+/* ── MOCK DATA FALLBACK ────────────────────────────────────────────── */
+const MOCK_NAMES = [
+  ['BONK REBORN','BONKR'],['PEPE MOON','PPEM'],['DOGE AI','DOAI'],
+  ['FROG LORD','FRGL'],['MOON WOLF','MWLF'],['TURBO CAT','TRBC'],
+  ['CYBER RAT','CYRT'],['ALPHA BULL','ABUL'],['NEON APE','NAPE'],
+  ['VOID FISH','VDFS'],['DARK HORSE','DKHS'],['PIXEL CHAD','PXCH'],
+  ['QUANTUM DOG','QTDG'],['LASER BEAR','LSBR'],['MEME KING','MMKG'],
+  ['CHAD LORD','CHDL'],['ROCKET APE','RKTAPE'],['SONIC BULL','SNBL'],
+  ['TURBO PEPE','TBPP'],['MOON CHAD','MNCD'],['SKULL DOGE','SKDG'],
+  ['ZERO FROG','ZRFG'],['HYPER CAT','HPCT'],['ALPHA MOON','ALMN'],
+  ['BASED DOG','BSDG'],['SIGMA BULL','SGBL'],['GIGA CHAD','GGCH'],
+];
+
+function randMint() {
+  const a = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz123456789';
+  return Array.from({ length: 44 }, () => a[Math.floor(Math.random() * a.length)]).join('');
+}
+
+function injectMock(n) {
+  const now = Date.now();
+  for (let i = 0; i < n; i++) {
+    const [name, symbol] = MOCK_NAMES[i % MOCK_NAMES.length];
+    const mint    = randMint();
+    const ageMs   = Math.random() * 120 * 60_000;
+    const born    = now - ageMs;
+    const soldPct = Math.random() * 0.85;
+    const vTok    = INIT_TOKENS * (1 - soldPct);
+    const vSol    = INIT_SOL + soldPct * (GRAD_SOL - INIT_SOL) * 1.1;
+    const ip      = calcPrice(INIT_SOL, INIT_TOKENS);
+    const mult    = 0.5 + Math.random() * 4;
+    const cp      = ip * mult;
+
+    // build price history
+    const steps = 8 + Math.floor(Math.random() * 20);
+    const hist  = [];
+    for (let j = 0; j <= steps; j++) {
+      const frac  = j / steps;
+      const noise = 1 + (Math.random() - 0.5) * 0.25;
+      const trend = 1 + frac * (mult - 1);
+      hist.push({ ts: born + frac * ageMs, p: ip * trend * noise });
+    }
+    hist.push({ ts: now, p: cp });
+
+    const vol    = Math.random() * 60;
+    const trades = 5 + Math.floor(Math.random() * 250);
+    const buys   = Math.floor(trades * (0.3 + Math.random() * 0.5));
+
+    const t = {
+      mint, name: name + (i >= MOCK_NAMES.length ? ` ${Math.floor(i/MOCK_NAMES.length)+2}` : ''),
+      symbol, born, lastTrade: now - Math.random() * 120_000,
+      priceHist: hist, curPrice: cp, initPrice: ip,
+      pricePct: ((cp - ip) / ip) * 100,
+      volume: vol, volSpike: 1,
+      mcSol: vSol + Math.random() * 15,
+      vSol, vTok, curvePct: bondingPct(vSol, vTok),
+      trades, buys, sells: trades - buys,
+      score: 0, signal: 'HOLD', reasoning: '',
+    };
+    S.tokens[mint] = t;
+    S.scanCount++;
+  }
+
+  recalcSpikes();
+  for (const t of Object.values(S.tokens)) rescoreToken(t);
+}
+
+let mockFired = false;
+setTimeout(() => {
+  if (S.scanCount < MIN_SCAN && !mockFired) {
+    mockFired = true;
+    scanFoot('WebSocket unavailable — loading demo data…');
+    const need = MIN_SCAN + 5 + Math.floor(Math.random() * 20);
+
+    // animate mock scanning
+    let added = 0;
+    const interval = setInterval(() => {
+      injectMock(3);
+      added += 3;
+      tickScan({ name: MOCK_NAMES[added % MOCK_NAMES.length][0] });
+      if (added >= need) clearInterval(interval);
+    }, 80);
+  }
+}, 5000);
+
+/* ── RENDER ────────────────────────────────────────────────────────── */
+function scheduleRender() {
+  if (S.renderPending) return;
+  S.renderPending = true;
+  requestAnimationFrame(() => { S.renderPending = false; render(); });
+}
+
+function visibleTokens() {
+  const now = Date.now();
+  const tab = S.activeTab;
+  const flt = S.filters;
+
+  let list = Object.values(S.tokens);
+
+  // Tab filter
+  if (tab === 'launches') list = list.filter(t => (now - t.born) < NEW_LAUNCH_MS);
+  if (tab === 'signals')  list = list.filter(t => t.signal === 'BUY');
+
+  // Chip filters
+  if (flt.has('vol2x'))  list = list.filter(t => t.volSpike >= 2);
+  if (flt.has('curve'))  list = list.filter(t => t.curvePct >= 20 && t.curvePct <= 90);
+  if (flt.has('fresh'))  list = list.filter(t => (now - t.born) < NEW_LAUNCH_MS);
+  if (flt.has('mc')) {
+    list = list.filter(t => {
+      const usd = t.mcSol * S.solPrice;
+      return usd >= 10_000 && usd <= 80_000;
+    });
+  }
+
+  // Sort
+  const { sortField, sortDir } = S;
+  list.sort((a, b) => {
+    let av, bv;
+    const now2 = Date.now();
+    switch (sortField) {
+      case 'name':   av = a.name;  bv = b.name;  return av < bv ? -sortDir : sortDir;
+      case 'price':  av = a.curPrice; bv = b.curPrice; break;
+      case 'pct':    av = Math.abs(a.pricePct); bv = Math.abs(b.pricePct); break;
+      case 'volume': av = a.volume;   bv = b.volume;   break;
+      case 'spike':  av = a.volSpike; bv = b.volSpike; break;
+      case 'curve':  av = a.curvePct; bv = b.curvePct; break;
+      case 'age':    av = now2 - b.born; bv = now2 - a.born; break; // older = bigger
+      case 'mc':     av = a.mcSol;    bv = b.mcSol;    break;
+      default:       av = a.score;    bv = b.score;
+    }
+    return (bv - av) * sortDir;
+  });
+
+  return list;
+}
+
+function render() {
+  if (!S.scanDone) return;
+  const now  = Date.now();
+  const all  = Object.values(S.tokens);
+  const list = visibleTokens();
+
+  // metrics
+  $('m-scanned').textContent   = S.scanCount;
+  $('m-qualified').textContent = all.filter(t => t.volume > 0 || t.trades > 0).length;
+  $('m-buys').textContent      = all.filter(t => t.signal === 'BUY').length;
+  $('m-launches').textContent  = all.filter(t => (now - t.born) < NEW_LAUNCH_MS).length;
+
+  const tbody = $('tok-body');
+
+  if (!list.length) {
+    tbody.innerHTML = `<tr><td colspan="9" class="empty">NO TOKENS MATCH CURRENT FILTERS</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = list.map(t => {
+    const age     = fmtAge(now - t.born);
+    const pct     = t.pricePct;
+    const pctCls  = pct > 0 ? 'up' : pct < 0 ? 'down' : 'neu';
+    const pctStr  = (pct > 0 ? '+' : '') + pct.toFixed(1) + '%';
+    const mcUsd   = t.mcSol * S.solPrice;
+    const cv      = t.curvePct;
+    const cvColor = cv > 80 ? '#d94f4f' : cv > 50 ? '#d99e46' : '#1D9E75';
+    const sp      = t.volSpike;
+    const spCls   = sp >= 3 ? 'hi' : sp >= 2 ? 'mid' : 'lo';
+    const selCls  = t.mint === S.selMint ? ' sel' : '';
+    const col     = tokenColor(t.symbol);
+
+    return `<tr class="tok-row${selCls}" data-mint="${t.mint}">
+      <td>
+        <span class="tok-icon" style="background:${col}22;color:${col}">${esc(t.symbol[0])}</span>
+        <span class="tok-name">${esc(t.name)}</span>
+        <span class="tok-sym">${esc(t.symbol)}</span>
+      </td>
+      <td>${fmtUsd(t.curPrice * S.solPrice)}</td>
+      <td><span class="pct ${pctCls}">${pctStr}</span></td>
+      <td>${fmtSol(t.volume)}</td>
+      <td><span class="spike-tag ${spCls}">${sp.toFixed(1)}x</span></td>
+      <td>
+        <div class="curve-wrap">
+          <div class="curve-track">
+            <div class="curve-fill" style="width:${cv.toFixed(0)}%;background:${cvColor}"></div>
+          </div>
+          <span style="color:${cvColor};font-size:10px">${cv.toFixed(0)}%</span>
+        </div>
+      </td>
+      <td style="color:var(--text-dim)">${age}</td>
+      <td>${fmtMC(mcUsd)}</td>
+      <td><span class="badge ${t.signal}">${t.signal} ${t.score}</span></td>
+    </tr>`;
+  }).join('');
+
+  // row click → detail panel
+  tbody.querySelectorAll('.tok-row').forEach(row => {
+    row.addEventListener('click', () => selectToken(row.dataset.mint));
+  });
+
+  // re-render detail if open
+  if (S.selMint && S.tokens[S.selMint]) renderDetail(S.tokens[S.selMint]);
+}
+
+/* ── DETAIL PANEL ──────────────────────────────────────────────────── */
+function selectToken(mint) {
+  S.selMint = mint;
+  const t   = S.tokens[mint];
+  if (!t) return;
+  $('detail').classList.add('open');
+  renderDetail(t);
+  render();
+}
+
+function closeDetail() {
+  S.selMint = null;
+  $('detail').classList.remove('open');
+  if (S.chart) { S.chart.destroy(); S.chart = null; }
+  render();
+}
+
+function renderDetail(t) {
+  if (!t) return;
+  const now   = Date.now();
+  const mcUsd = t.mcSol * S.solPrice;
+  const pct   = t.pricePct;
+  const pctCls  = pct >= 0 ? 'g' : 'r';
+  const pctStr  = (pct > 0 ? '+' : '') + pct.toFixed(1) + '%';
+  const buyRatio = t.trades > 0 ? Math.round((t.buys / t.trades) * 100) : 50;
+
+  $('detail-scroll').innerHTML = `
+    <div class="d-hdr">
+      <div>
+        <div class="d-name">${esc(t.name)}</div>
+        <div class="d-sym">${esc(t.symbol)} · ${t.mint.slice(0,10)}…</div>
+      </div>
+      <div class="d-close" id="d-close-btn">✕</div>
+    </div>
+
+    <div class="d-score-row">
+      <div class="d-score-num ${t.signal}">${t.score}</div>
+      <div>
+        <span class="badge ${t.signal}">${t.signal}</span>
+        <div class="d-score-sub">SIGNAL SCORE / 100</div>
+      </div>
+    </div>
+
+    <div class="chart-box">
+      <canvas id="sparkline"></canvas>
+      <div class="chart-no-data" id="chart-msg" style="display:none">NOT ENOUGH DATA</div>
+    </div>
+
+    <div class="d-stats">
+      <div class="d-stat">
+        <div class="d-stat-lbl">Price Change</div>
+        <div class="d-stat-val ${pctCls}">${pctStr}</div>
+      </div>
+      <div class="d-stat">
+        <div class="d-stat-lbl">Vol Spike</div>
+        <div class="d-stat-val">${t.volSpike.toFixed(2)}x</div>
+      </div>
+      <div class="d-stat">
+        <div class="d-stat-lbl">Bonding Curve</div>
+        <div class="d-stat-val">${t.curvePct.toFixed(1)}%</div>
+      </div>
+      <div class="d-stat">
+        <div class="d-stat-lbl">Market Cap</div>
+        <div class="d-stat-val">${fmtMC(mcUsd)}</div>
+      </div>
+      <div class="d-stat">
+        <div class="d-stat-lbl">Age</div>
+        <div class="d-stat-val">${fmtAge(now - t.born)}</div>
+      </div>
+      <div class="d-stat">
+        <div class="d-stat-lbl">Trades</div>
+        <div class="d-stat-val">
+          ${t.trades}
+          <span style="font-size:10px;color:var(--green)"> ${t.buys}B</span>/<span style="font-size:10px;color:var(--red)">${t.sells}S</span>
+        </div>
+      </div>
+      <div class="d-stat">
+        <div class="d-stat-lbl">Buy Ratio</div>
+        <div class="d-stat-val ${buyRatio >= 60 ? 'g' : buyRatio < 40 ? 'r' : ''}">${buyRatio}%</div>
+      </div>
+      <div class="d-stat">
+        <div class="d-stat-lbl">Volume (SOL)</div>
+        <div class="d-stat-val">${fmtSol(t.volume)}</div>
+      </div>
+    </div>
+
+    <div class="d-ai">
+      <div class="d-ai-lbl">▸ AI Analysis</div>
+      <div class="d-ai-text">${esc(t.reasoning || 'Analyzing…')}</div>
+    </div>
+
+    <div class="d-actions">
+      <button class="d-btn buy"  id="btn-size">Size Pos</button>
+      <button class="d-btn"      id="btn-exit">Set Exits</button>
+      <button class="d-btn sell" id="btn-sell">Sell</button>
+    </div>
+  `;
+
+  $('d-close-btn').addEventListener('click', closeDetail);
+
+  // action button handlers (UI placeholders)
+  $('btn-size').addEventListener('click', () => {
+    const notional = (t.mcSol * S.solPrice * 0.01).toFixed(2);
+    alert(`Suggested 1% position: $${notional} USD\nToken: ${t.name} (${t.symbol})\nScore: ${t.score}/100`);
+  });
+  $('btn-exit').addEventListener('click', () => {
+    const tp = ((t.curPrice * 1.5) * S.solPrice).toFixed(8);
+    const sl = ((t.curPrice * 0.8) * S.solPrice).toFixed(8);
+    alert(`Suggested exits for ${t.symbol}:\n• Take profit: $${tp} (+50%)\n• Stop loss:   $${sl} (-20%)`);
+  });
+  $('btn-sell').addEventListener('click', () => {
+    if (confirm(`Confirm sell: ${t.name} (${t.symbol})?\nCurrent price: ${fmtUsd(t.curPrice * S.solPrice)}`)) {
+      alert('Sell order submitted (demo).');
+    }
+  });
+
+  drawSparkline(t);
+}
+
+function drawSparkline(t) {
+  if (S.chart) { S.chart.destroy(); S.chart = null; }
+
+  const canvas = $('sparkline');
+  if (!canvas) return;
+
+  if (t.priceHist.length < 2) {
+    $('chart-msg').style.display = 'flex';
+    return;
+  }
+  $('chart-msg').style.display = 'none';
+
+  const prices = t.priceHist.map(h => h.p * S.solPrice);
+  const isUp   = prices[prices.length - 1] >= prices[0];
+  const color  = isUp ? '#1D9E75' : '#d94f4f';
+  const fill   = isUp ? 'rgba(29,158,117,0.08)' : 'rgba(217,79,79,0.08)';
+
+  S.chart = new Chart(canvas, {
+    type: 'line',
+    data: {
+      labels: prices.map(() => ''),
+      datasets: [{
+        data: prices,
+        borderColor: color,
+        borderWidth: 1.5,
+        pointRadius: 0,
+        fill: true,
+        backgroundColor: fill,
+        tension: 0.35,
+      }],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: { duration: 400 },
+      plugins: { legend: { display: false }, tooltip: { enabled: false } },
+      scales: {
+        x: { display: false },
+        y: {
+          display: true,
+          position: 'right',
+          grid: { color: 'rgba(255,255,255,0.04)' },
+          ticks: {
+            color: '#484848',
+            font: { family: 'Courier New', size: 9 },
+            maxTicksLimit: 4,
+            callback: v => v < 0.0001 ? v.toExponential(1) : '$' + v.toFixed(v < 0.01 ? 6 : 4),
+          },
+        },
+      },
+    },
+  });
+}
+
+/* ── REFRESH LOOP ──────────────────────────────────────────────────── */
+function startRefreshLoop() {
+  S.lastRefresh = Date.now();
+
+  setInterval(() => {
+    S.lastRefresh = Date.now();
+    recalcSpikes();
+    for (const t of Object.values(S.tokens)) rescoreToken(t);
+    render();
+  }, REFRESH_MS);
+
+  setInterval(tickRefreshBar, 1000);
+}
+
+function tickRefreshBar() {
+  const elapsed   = Date.now() - S.lastRefresh;
+  const remaining = Math.max(0, REFRESH_MS - elapsed);
+  const pct       = ((REFRESH_MS - remaining) / REFRESH_MS) * 100;
+  $('refresh-fill').style.width = pct + '%';
+  $('refresh-eta').textContent   = `refresh in ${Math.ceil(remaining / 1000)}s`;
+}
+
+/* ── TAB & FILTER WIRING ───────────────────────────────────────────── */
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(t => rm(t, 'active'));
+    cl(tab, 'active');
+    S.activeTab = tab.dataset.tab;
+    if (S.scanDone) render();
+  });
+});
+
+document.querySelectorAll('.chip').forEach(chip => {
+  chip.addEventListener('click', () => {
+    const f = chip.dataset.f;
+    if (S.filters.has(f)) { S.filters.delete(f); rm(chip, 'on'); }
+    else                   { S.filters.add(f);    cl(chip, 'on'); }
+    if (S.scanDone) render();
+  });
+});
+
+// Column sort
+document.querySelectorAll('.tbl th[data-sort]').forEach(th => {
+  th.addEventListener('click', () => {
+    const field = th.dataset.sort;
+    if (S.sortField === field) S.sortDir *= -1;
+    else { S.sortField = field; S.sortDir = -1; }
+    document.querySelectorAll('.tbl th').forEach(h => rm(h, 'sorted'));
+    cl(th, 'sorted');
+    if (S.scanDone) render();
+  });
+});
+
+/* ── SOL PRICE (best-effort) ───────────────────────────────────────── */
+fetch('https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd')
+  .then(r => r.json())
+  .then(d => { if (d?.solana?.usd) S.solPrice = d.solana.usd; })
+  .catch(() => {});
+
+/* ── BOOT ──────────────────────────────────────────────────────────── */
+animateBootLines();
+wsConnect();
+
+// Periodic live re-render even without new WS messages
+setInterval(() => { if (S.scanDone) render(); }, 5000);
+</script>
+</body>
+</html>
