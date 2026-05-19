@@ -221,14 +221,25 @@ tr.new-row{animation:slideUp .3s ease}
 @keyframes slideUp2{from{transform:translateY(100%);opacity:0}to{transform:none;opacity:1}}
 @keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
 
-/* ── TAB SWITCH ANIMATIONS ── */
+/* ── TAB SWITCH — SCAN LINE ── */
 .bn{transition:color .15s,background .15s,transform .12s}
 .bn:active{transform:scale(.88)}
-#content.tab-out{opacity:0;transform:translateX(var(--tx));transition:opacity .16s ease,transform .16s ease;pointer-events:none}
-@keyframes tabEnterR{from{opacity:0;transform:translateX(28px)}to{opacity:1;transform:none}}
-@keyframes tabEnterL{from{opacity:0;transform:translateX(-28px)}to{opacity:1;transform:none}}
-#content.tab-in-r{animation:tabEnterR .22s cubic-bezier(.25,.46,.45,.94)}
-#content.tab-in-l{animation:tabEnterL .22s cubic-bezier(.25,.46,.45,.94)}
+#tab-scan{position:fixed;inset:0;z-index:9998;pointer-events:none;opacity:0;transition:opacity .12s}
+#tab-scan.run{opacity:1}
+#tab-scan-bg{position:absolute;inset:0;background:rgba(7,9,15,.72)}
+#tab-scan-line{position:absolute;left:0;right:0;top:-6px;height:6px;background:linear-gradient(90deg,transparent 0%,rgba(0,212,170,.4) 20%,var(--green) 40%,#0099ff 50%,var(--green) 60%,rgba(0,212,170,.4) 80%,transparent 100%);box-shadow:0 0 18px rgba(0,212,170,.9),0 0 40px rgba(0,212,170,.5),0 -2px 60px rgba(0,150,255,.3),0 2px 60px rgba(0,150,255,.3);opacity:0}
+#tab-scan-line.go{opacity:1;animation:scanDown .38s cubic-bezier(.4,0,.2,1) forwards}
+#tab-scan-trail{position:absolute;left:0;right:0;top:0;height:0;background:linear-gradient(to bottom,rgba(0,212,170,.06),transparent);opacity:0}
+#tab-scan-line.go~#tab-scan-trail{opacity:1;animation:trailGrow .38s cubic-bezier(.4,0,.2,1) forwards}
+@keyframes scanDown{from{top:-6px}to{top:100%}}
+@keyframes trailGrow{from{height:0}to{height:100%}}
+#tab-scan-grid{position:absolute;inset:0;background-image:linear-gradient(rgba(0,212,170,.03) 1px,transparent 1px),linear-gradient(90deg,rgba(0,212,170,.03) 1px,transparent 1px);background-size:28px 28px;opacity:0;animation:none}
+#tab-scan.run #tab-scan-grid{animation:gridFlash .38s ease forwards}
+@keyframes gridFlash{0%{opacity:0}30%{opacity:1}100%{opacity:0}}
+#content.tab-dissolve{animation:dissolve .18s ease forwards}
+#content.tab-resolve{animation:resolve .28s cubic-bezier(.25,.46,.45,.94) forwards}
+@keyframes dissolve{from{opacity:1}to{opacity:0}}
+@keyframes resolve{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
 
 @media(max-width:640px){
   .sum-strip{grid-template-columns:1fr 1fr}
@@ -343,6 +354,7 @@ tr.new-row{animation:slideUp .3s ease}
     <div class="hero-val" id="a-total">$2,000.00</div>
     <div class="hero-chg" id="a-chg" style="color:var(--dim)">+$0.00 (0.00%)</div>
     <div class="hero-sub" id="a-sub">Started $2,000.00 · 0 trades · Win rate –</div>
+    <button onclick="resetPaperTrade()" style="margin-top:16px;padding:7px 20px;border-radius:8px;border:1px solid rgba(255,77,109,.4);background:rgba(255,77,109,.08);color:var(--red);font-size:11px;font-weight:700;letter-spacing:1px;cursor:pointer;font-family:inherit">↺ RESET PAPER TRADE</button>
   </div>
 
   <div class="sec-title">Bot Breakdown</div>
@@ -392,6 +404,14 @@ tr.new-row{animation:slideUp .3s ease}
   <div class="bn" data-sec="scanner"   onclick="go('scanner')"  ><span class="bn-ic">🔍</span>Scanner</div>
 </nav>
 
+<!-- TAB SCAN OVERLAY -->
+<div id="tab-scan">
+  <div id="tab-scan-bg"></div>
+  <div id="tab-scan-grid"></div>
+  <div id="tab-scan-line"></div>
+  <div id="tab-scan-trail"></div>
+</div>
+
 <script>
 'use strict';
 /* ════════════════════════════════════════════════════════════
@@ -402,17 +422,21 @@ const SEC_ORDER = ['dashboard', 'trading', 'account', 'scanner'];
 
 function go(sec) {
   if (sec === curSec) return;
-  const oldIdx = SEC_ORDER.indexOf(curSec);
-  const newIdx = SEC_ORDER.indexOf(sec);
-  const dir    = newIdx > oldIdx ? 1 : -1;
   const content = document.getElementById('content');
+  const scan    = document.getElementById('tab-scan');
+  const line    = document.getElementById('tab-scan-line');
 
-  // Slide out
-  content.style.setProperty('--tx', (dir * 22) + 'px');
-  content.classList.add('tab-out');
+  // dissolve content + show scan overlay
+  content.classList.add('tab-dissolve');
+  scan.classList.add('run');
 
+  // reset line animation (force reflow trick)
+  line.classList.remove('go');
+  void line.offsetWidth;
+  line.classList.add('go');
+
+  // at midpoint: swap section
   setTimeout(() => {
-    // Switch section
     document.querySelectorAll('.sec').forEach(s => s.classList.remove('active'));
     document.getElementById('sec-' + sec).classList.add('active');
     document.querySelectorAll('.bn').forEach(b => b.classList.remove('cur'));
@@ -422,11 +446,16 @@ function go(sec) {
     if (sec === 'account') refreshAccountChart();
     renderAll();
 
-    // Slide in from opposite direction
-    content.classList.remove('tab-out');
-    content.classList.add(dir > 0 ? 'tab-in-r' : 'tab-in-l');
-    setTimeout(() => content.classList.remove('tab-in-r', 'tab-in-l'), 240);
-  }, 160);
+    content.classList.remove('tab-dissolve');
+    content.classList.add('tab-resolve');
+    setTimeout(() => content.classList.remove('tab-resolve'), 320);
+  }, 220);
+
+  // remove overlay after scan finishes
+  setTimeout(() => {
+    scan.classList.remove('run');
+    line.classList.remove('go');
+  }, 420);
 }
 
 /* ════════════════════════════════════════════════════════════
@@ -538,13 +567,13 @@ function saveState() {
       equityHist: S.equityHist.slice(-600),
       tradeLog: S.tradeLog.slice(0, 200),
     };
-    localStorage.setItem('ai_bot_v2', JSON.stringify(toSave));
+    localStorage.setItem('ai_bot_v3', JSON.stringify(toSave));
   } catch(e) {}
 }
 
 function loadState() {
   try {
-    const raw = localStorage.getItem('ai_bot_v2');
+    const raw = localStorage.getItem('ai_bot_v3');
     if (!raw) return;
     const saved = JSON.parse(raw);
     S.startDate  = saved.startDate  || S.startDate;
@@ -1000,6 +1029,23 @@ function updateBotAnimTicker() {
     const sign = pnl >= 0 ? '+' : '';
     return `<span class="ba-tick ${cls}">${def.emoji} ${def.id === 'newcoins' ? 'NEW' : def.id.toUpperCase()} ${sign}${pct}%</span>`;
   }).join('');
+}
+
+function resetPaperTrade() {
+  if (!confirm('Reset all bots to $500 each and clear trade history?')) return;
+  localStorage.removeItem('ai_bot_v3');
+  S.startDate  = Date.now();
+  S.bots       = {
+    movers:   { balance: 500, trades: 0, wins: 0, losses: 0, totalPnl: 0 },
+    mayhem:   { balance: 500, trades: 0, wins: 0, losses: 0, totalPnl: 0 },
+    newcoins: { balance: 500, trades: 0, wins: 0, losses: 0, totalPnl: 0 },
+    highcap:  { balance: 500, trades: 0, wins: 0, losses: 0, totalPnl: 0 },
+  };
+  S.equityHist = [{ t: Date.now(), v: 2000 }];
+  S.tradeLog   = [];
+  Object.keys(runtime).forEach(id => { runtime[id].pos = null; runtime[id].feed = []; runtime[id].phase = 'scan'; });
+  saveState();
+  renderAll();
 }
 
 loadState();
