@@ -7,13 +7,13 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="AI Trading Bot">
 <meta name="theme-color" content="#07090f">
-<title>AI Trading Bot</title>
+<title>Pump Portal</title>
 <script>
 // Inline PWA manifest
 const manifest = {
-  name: "AI Trading Bot",
-  short_name: "AI Trader",
-  description: "4-bot paper trading dashboard",
+  name: "Pump Portal",
+  short_name: "PumpPortal",
+  description: "4-bot AI paper trading dashboard",
   start_url: "./",
   display: "standalone",
   background_color: "#07090f",
@@ -195,26 +195,47 @@ tr.new-row{animation:slideUp .3s ease}
 @keyframes shimmer{to{background-position:200% 0}}
 @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
 
-/* ── LOADER ── */
-#loader{position:fixed;inset:0;z-index:999999;background:var(--bg);display:flex;align-items:center;justify-content:center;flex-direction:column;transition:opacity .7s ease,visibility .7s ease}
+/* ── LOADER — MAINFRAME HACK ── */
+#loader{position:fixed;inset:0;z-index:999999;background:#000;display:flex;align-items:center;justify-content:center;transition:opacity .7s ease,visibility .7s ease;overflow:hidden}
 #loader.gone{opacity:0;visibility:hidden;pointer-events:none}
-.ld-grid{position:absolute;inset:0;background-image:radial-gradient(circle,rgba(0,212,170,.07) 1px,transparent 1px);background-size:28px 28px;pointer-events:none}
-.ld-logo{font-size:30px;font-weight:800;color:var(--bright);margin-bottom:4px;letter-spacing:-1px}.ld-logo span{color:var(--green)}
-.ld-tagline{font-size:10px;color:var(--dim);letter-spacing:3px;text-transform:uppercase;margin-bottom:32px}
-.ld-bot-wrap{position:relative;width:100px;height:100px;margin-bottom:28px;display:flex;align-items:center;justify-content:center}
-.ld-ring{position:absolute;inset:0;border-radius:50%;border:1.5px solid rgba(0,212,170,.25);animation:ld-expand 1.8s ease-out infinite}
-.ld-ring:nth-child(2){animation-delay:.6s}.ld-ring:nth-child(3){animation-delay:1.2s}
-.ld-face{width:64px;height:64px;background:linear-gradient(135deg,#0f1923,#162035);border:2px solid var(--green);border-radius:14px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;box-shadow:0 0 24px rgba(0,212,170,.3);position:relative;animation:float 2s ease-in-out infinite}
-.ld-eyes{display:flex;gap:9px}
-.ld-eye{width:10px;height:10px;border-radius:50%;background:var(--green);box-shadow:0 0 8px var(--green);animation:blink 3.5s ease-in-out infinite}
-.ld-eye:nth-child(2){animation-delay:.2s}
-.ld-mouth{width:20px;height:2.5px;background:var(--green);border-radius:2px;opacity:.7}
-.ld-ant{position:absolute;top:-16px;left:50%;transform:translateX(-50%);width:2px;height:14px;background:var(--green)}
-.ld-ant::after{content:'';width:6px;height:6px;border-radius:50%;background:var(--green);position:absolute;top:-6px;left:50%;transform:translateX(-50%);animation:pulse-dot 1s ease-in-out infinite}
-.ld-bar-wrap{width:220px;height:3px;background:rgba(255,255,255,.06);border-radius:2px;overflow:hidden;margin-bottom:12px}
-.ld-bar{height:100%;width:0;background:linear-gradient(90deg,var(--green),#0099ff,var(--purple));border-radius:2px;transition:width .08s linear}
-.ld-status{font-size:10px;color:var(--dim);letter-spacing:1.2px;font-family:'JetBrains Mono',monospace;min-height:16px}
-@keyframes ld-expand{0%{transform:scale(.5);opacity:.6}100%{transform:scale(1.6);opacity:0}}
+/* matrix rain canvas */
+#ld-matrix{position:absolute;inset:0;opacity:.45;pointer-events:none}
+/* terminal window */
+#ld-term{position:relative;z-index:2;width:min(500px,92vw);background:#0a0a0a;border:1px solid #00ff9d44;border-radius:10px;box-shadow:0 0 50px rgba(0,255,157,.15),0 20px 60px rgba(0,0,0,.9);overflow:hidden;transition:opacity .3s ease,transform .3s ease}
+#ld-term.hide{opacity:0;transform:scale(.94);pointer-events:none}
+.ld-term-hdr{display:flex;align-items:center;gap:8px;padding:10px 14px;background:#111;border-bottom:1px solid #1a1a1a}
+.ld-tdot{width:12px;height:12px;border-radius:50%;flex-shrink:0}
+.ld-tdot.r{background:#ff5f57}.ld-tdot.y{background:#febc2e}.ld-tdot.g{background:#28c840}
+.ld-term-title{flex:1;text-align:center;font-size:11px;color:#444;font-family:'JetBrains Mono',monospace;letter-spacing:.5px}
+.ld-term-body{padding:14px 16px 18px;min-height:190px;font-family:'JetBrains Mono',monospace;font-size:12px;line-height:2}
+.ld-line{display:flex;align-items:baseline;gap:8px;opacity:0;transition:opacity .08s}
+.ld-line.show{opacity:1}
+.ld-prompt{color:#444;flex-shrink:0;font-size:11px}
+.ld-txt{color:#00ff9d}
+.ld-txt.ok{color:#00ff9d}
+.ld-txt.warn{color:#ffcc00}
+.ld-txt.dim{color:#555}
+.ld-txt.bright{color:#fff;font-weight:700}
+.ld-cur{display:inline-block;width:7px;height:13px;background:#00ff9d;animation:ld-blink .65s step-end infinite;vertical-align:text-bottom;margin-left:2px}
+@keyframes ld-blink{0%,100%{opacity:1}50%{opacity:0}}
+/* browser popup */
+#ld-browser{position:absolute;z-index:3;width:min(420px,88vw);background:#1c1c1c;border-radius:12px;box-shadow:0 0 70px rgba(0,255,157,.2),0 30px 80px rgba(0,0,0,.95);overflow:hidden;transform:scale(.55) translateY(60px);opacity:0;transition:transform .45s cubic-bezier(.34,1.56,.64,1),opacity .3s ease;pointer-events:none}
+#ld-browser.pop{transform:scale(1) translateY(0);opacity:1;pointer-events:auto}
+.br-chrome{display:flex;align-items:center;gap:10px;padding:10px 14px;background:#2a2a2a;border-bottom:1px solid #333}
+.br-btns{display:flex;gap:6px}
+.br-btns span{width:11px;height:11px;border-radius:50%;display:block}
+.br-btns span:nth-child(1){background:#ff5f57}
+.br-btns span:nth-child(2){background:#febc2e}
+.br-btns span:nth-child(3){background:#28c840}
+.br-urlbar{flex:1;display:flex;align-items:center;gap:6px;background:#111;border:1px solid #444;border-radius:6px;padding:5px 10px;font-family:'JetBrains Mono',monospace;font-size:11px;color:#888}
+.br-lock{font-size:10px;color:#00ff9d}
+.br-body{padding:30px 28px 28px;text-align:center;background:#0d0d0d}
+.br-pp-logo{font-size:30px;font-weight:800;color:#fff;letter-spacing:-1px;margin-bottom:3px}
+.br-pp-logo span{color:#00ff9d}
+.br-pp-sub{font-size:9px;color:#444;letter-spacing:3px;text-transform:uppercase;margin-bottom:22px}
+.br-bar-wrap{height:3px;background:#1e1e1e;border-radius:2px;overflow:hidden;margin-bottom:10px}
+.br-bar{height:100%;width:0%;background:linear-gradient(90deg,#00ff9d,#00e676);border-radius:2px;box-shadow:0 0 10px #00ff9d88;transition:width .07s linear}
+.br-status{font-family:'JetBrains Mono',monospace;font-size:11px;color:#00ff9d;letter-spacing:1px;min-height:18px}
 
 /* ── BOT ANIMATION (trading section) ── */
 .bot-anim-wrap{display:flex;flex-direction:column;align-items:center;padding:16px 0 20px}
@@ -281,8 +302,8 @@ tr.new-row{animation:slideUp .3s ease}
   .bc-stats{grid-template-columns:1fr 1fr 1fr}
   table{font-size:10px}
   td,th{padding:6px 4px}
-  .ld-logo{font-size:24px}
-  .ld-face{width:54px;height:54px}
+  .ld-term-body{font-size:10px}
+  .br-pp-logo{font-size:22px}
 }
 /* iPhone safe area + scroll fix */
 @supports(padding-bottom: env(safe-area-inset-bottom)){
@@ -293,26 +314,37 @@ tr.new-row{animation:slideUp .3s ease}
 </head>
 <body>
 
-<!-- ══ LOADER ══════════════════════════════════════════════════ -->
+<!-- ══ LOADER — MAINFRAME HACK ══════════════════════════════ -->
 <div id="loader">
-  <div class="ld-grid"></div>
-  <div class="ld-logo">AI <span>Trading</span> Bot</div>
-  <div class="ld-tagline">Neural Engine v2.0</div>
-  <div class="ld-bot-wrap">
-    <div class="ld-ring"></div><div class="ld-ring"></div><div class="ld-ring"></div>
-    <div class="ld-face">
-      <div class="ld-ant"></div>
-      <div class="ld-eyes"><div class="ld-eye"></div><div class="ld-eye"></div></div>
-      <div class="ld-mouth"></div>
+  <canvas id="ld-matrix"></canvas>
+
+  <!-- Terminal window -->
+  <div id="ld-term">
+    <div class="ld-term-hdr">
+      <div class="ld-tdot r"></div><div class="ld-tdot y"></div><div class="ld-tdot g"></div>
+      <div class="ld-term-title">bash — pump_portal_init.sh</div>
+    </div>
+    <div class="ld-term-body" id="ld-term-body"></div>
+  </div>
+
+  <!-- Browser popup -->
+  <div id="ld-browser">
+    <div class="br-chrome">
+      <div class="br-btns"><span></span><span></span><span></span></div>
+      <div class="br-urlbar"><span class="br-lock">🔒</span><span>pumpportal.fun</span></div>
+    </div>
+    <div class="br-body">
+      <div class="br-pp-logo">Pump<span>Portal</span></div>
+      <div class="br-pp-sub">AI Trading Dashboard</div>
+      <div class="br-bar-wrap"><div class="br-bar" id="br-bar"></div></div>
+      <div class="br-status" id="br-status">Loading…</div>
     </div>
   </div>
-  <div class="ld-bar-wrap"><div class="ld-bar" id="ld-bar"></div></div>
-  <div class="ld-status" id="ld-status">Booting neural engine…</div>
 </div>
 
 <!-- HEADER -->
 <div id="hdr">
-  <div class="logo">AI <span>Trading</span> Bot</div>
+  <div class="logo">Pump<span>Portal</span></div>
   <div class="pill"><div class="pdot"></div><span id="hdr-status">4 BOTS LIVE</span></div>
 </div>
 
@@ -1021,39 +1053,91 @@ function el(id) { return document.getElementById(id); }
    MAIN LOOP
 ════════════════════════════════════════════════════════════ */
 /* ════════════════════════════════════════════════════════════
-   LOADER
+   LOADER — MAINFRAME HACK SEQUENCE
 ════════════════════════════════════════════════════════════ */
 (function() {
-  const msgs = [
-    'Booting neural engine…',
-    'Connecting to market data…',
-    'Calibrating Mayhem Bot 🔥',
-    'Calibrating Movers Bot 📈',
-    'Calibrating New Launches Bot ✨',
-    'Calibrating High Cap Bot 💎',
-    'Loading trade history…',
-    'Warming up price feeds…',
-    'All systems go — launching!',
-  ];
-  let pct = 0;
-  let mi  = 0;
-  const bar    = document.getElementById('ld-bar');
-  const status = document.getElementById('ld-status');
-  const loader = document.getElementById('loader');
+  /* ── Matrix rain ── */
+  const canvas = document.getElementById('ld-matrix');
+  const ctx    = canvas.getContext('2d');
+  canvas.width  = window.innerWidth;
+  canvas.height = window.innerHeight;
+  const CHARS = 'PUMPPORTAL01アイウエオ23カキクケコ45サシスセソ67タチツ89ABCDEF$#@%&!?';
+  const FS    = 13;
+  const cols  = Math.floor(canvas.width / FS);
+  const drops = Array.from({length: cols}, () => Math.random() * -50);
+  function drawMatrix() {
+    ctx.fillStyle = 'rgba(0,0,0,0.06)';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    drops.forEach((y, i) => {
+      const ch = CHARS[Math.floor(Math.random() * CHARS.length)];
+      const bright = Math.random() > 0.92;
+      ctx.fillStyle = bright ? '#afffdf' : '#00ff9d';
+      ctx.font = FS + 'px monospace';
+      ctx.fillText(ch, i * FS, y * FS);
+      if (y * FS > canvas.height && Math.random() > 0.97) drops[i] = 0;
+      drops[i] += 0.8;
+    });
+  }
+  const matrixTimer = setInterval(drawMatrix, 33);
 
-  const step = setInterval(() => {
-    pct += 100 / (msgs.length - 1);
-    mi++;
-    bar.style.width = Math.min(100, pct) + '%';
-    if (msgs[mi]) status.textContent = msgs[mi];
-    if (pct >= 100) {
-      clearInterval(step);
-      setTimeout(() => {
-        loader.classList.add('gone');
-        setTimeout(() => loader.remove(), 800);
-      }, 320);
-    }
-  }, 260);
+  /* ── Terminal type-on ── */
+  const lines = [
+    { t: 'Initializing PUMP PORTAL v2.0...',          cls: '',      d: 0   },
+    { t: 'Connecting to Solana mainnet [████] OK',     cls: 'ok',   d: 300 },
+    { t: 'Bypassing exchange firewall... SUCCESS',     cls: 'ok',   d: 580 },
+    { t: 'WARNING: Elevated market volatility',        cls: 'warn', d: 840 },
+    { t: 'Accessing pump.fun data stream...',          cls: 'ok',   d: 1080},
+    { t: 'Decrypting 4 neural trading bots...',        cls: 'ok',   d: 1300},
+    { t: '>>> ACCESS GRANTED — WELCOME, TRADER <<<',   cls: 'bright',d:1520},
+  ];
+
+  const body = document.getElementById('ld-term-body');
+  let cursor = null;
+
+  lines.forEach((line, i) => {
+    setTimeout(() => {
+      if (cursor) cursor.remove();
+      const div = document.createElement('div');
+      div.className = 'ld-line';
+      div.innerHTML = `<span class="ld-prompt">$</span><span class="ld-txt ${line.cls}">${line.t}</span>`;
+      body.appendChild(div);
+      requestAnimationFrame(() => div.classList.add('show'));
+      if (i === lines.length - 1) {
+        cursor = document.createElement('span');
+        cursor.className = 'ld-cur';
+        div.appendChild(cursor);
+      }
+    }, line.d);
+  });
+
+  /* ── Browser popup after terminal ── */
+  setTimeout(() => {
+    document.getElementById('ld-term').classList.add('hide');
+    const browser = document.getElementById('ld-browser');
+    browser.classList.add('pop');
+
+    const bar      = document.getElementById('br-bar');
+    const statusEl = document.getElementById('br-status');
+    const statuses = ['Loading…', 'Fetching market data…', 'Starting bots…', 'Almost there…', 'Launch!'];
+    let pct = 0, si = 0;
+
+    const fill = setInterval(() => {
+      pct += 1.8;
+      bar.style.width = Math.min(100, pct) + '%';
+      const idx = Math.floor((pct / 100) * statuses.length);
+      if (statuses[idx] && statuses[idx] !== statusEl.textContent) {
+        statusEl.textContent = statuses[idx];
+      }
+      if (pct >= 100) {
+        clearInterval(fill);
+        setTimeout(() => {
+          clearInterval(matrixTimer);
+          document.getElementById('loader').classList.add('gone');
+          setTimeout(() => document.getElementById('loader').remove(), 750);
+        }, 300);
+      }
+    }, 36);
+  }, 1900);
 })();
 
 /* ════════════════════════════════════════════════════════════
