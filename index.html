@@ -29,7 +29,7 @@
       color: var(--text);
       font-family: 'Inter', sans-serif;
       min-height: 100vh;
-      overflow-x: hidden;
+      padding-bottom: 62px;
     }
 
     /* ── BACKGROUND GRID ─────────────────────────────────────────── */
@@ -374,24 +374,28 @@
 
     /* ── BOTTOM NAV ──────────────────────────────────────────────── */
     #bnav {
-      position: fixed; bottom: 0; left: 0; right: 0; z-index: 200;
+      position: fixed; bottom: 0; left: 0; right: 0;
+      z-index: 99999;
       display: flex; height: 62px;
-      background: rgba(10,13,20,0.97);
+      background: rgba(10,13,20,0.98);
       backdrop-filter: blur(20px);
-      border-top: 1px solid #1e2d3d;
+      border-top: 1px solid #00d4aa33;
+      pointer-events: all;
     }
     .bn {
       flex: 1; display: flex; flex-direction: column;
       align-items: center; justify-content: center; gap: 3px;
       text-decoration: none; color: #4a5568;
       font-size: 10px; font-weight: 600; letter-spacing: 0.4px;
-      transition: all 0.18s; border-right: 1px solid #1e2d3d;
+      transition: color 0.18s, background 0.18s;
+      border-right: 1px solid #1e2d3d;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
     }
     .bn:last-child { border-right: none; }
-    .bn:hover { color: #e2e8f0; background: rgba(255,255,255,0.03); }
-    .bn.cur { color: #00d4aa; }
+    .bn:hover { color: #e2e8f0; background: rgba(255,255,255,0.05); }
+    .bn.cur { color: #00d4aa; background: rgba(0,212,170,0.06); }
     .bn-ic { font-size: 20px; line-height: 1; }
-    main { padding-bottom: 80px; }
   </style>
 </head>
 <body>
