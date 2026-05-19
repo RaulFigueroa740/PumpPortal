@@ -3,380 +3,145 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AI Bot — Live Paper Trading</title>
+  <title>4-Bot Trading — AI Trading Bot</title>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap');
-
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
     :root {
-      --bg:       #07090f;
-      --card:     #0d1117;
-      --card2:    #111827;
-      --border:   #1e2d3d;
-      --accent:   #00d4aa;
-      --accent2:  #0099ff;
-      --green:    #00d4aa;
-      --red:      #ff4d6d;
-      --yellow:   #ffd166;
-      --text:     #e2e8f0;
-      --dim:      #4a5568;
-      --bright:   #ffffff;
+      --bg: #07090f; --card: #0d1117; --card2: #111827; --border: #1e2d3d;
+      --green: #00d4aa; --red: #ff4d6d; --yellow: #ffd166;
+      --purple: #a78bfa; --blue: #38bdf8; --orange: #fb923c;
+      --text: #e2e8f0; --dim: #4a5568; --bright: #ffffff;
     }
+    body { background: var(--bg); color: var(--text); font-family: 'Inter', sans-serif; min-height: 100vh; padding-bottom: 62px; }
+    body::before { content: ''; position: fixed; inset: 0; background-image: radial-gradient(circle, rgba(0,212,170,0.04) 1px, transparent 1px); background-size: 32px 32px; pointer-events: none; z-index: 0; }
 
-    body {
-      background: var(--bg);
-      color: var(--text);
-      font-family: 'Inter', sans-serif;
-      min-height: 100vh;
-    }
+    /* ── HEADER ── */
+    header { position: relative; z-index: 10; display: flex; align-items: center; justify-content: space-between; padding: 14px 28px; background: rgba(7,9,15,0.9); backdrop-filter: blur(16px); border-bottom: 1px solid var(--border); }
+    .logo-row { display: flex; align-items: center; gap: 10px; }
+    .logo-text { font-size: 17px; font-weight: 800; color: var(--bright); }
+    .logo-text span { color: var(--green); }
+    nav { display: flex; gap: 20px; }
+    .nav-link { font-size: 13px; font-weight: 500; color: var(--dim); text-decoration: none; transition: color .2s; }
+    .nav-link:hover, .nav-link.active { color: var(--green); }
+    .pill { display: flex; align-items: center; gap: 7px; padding: 5px 14px; background: rgba(0,212,170,0.08); border: 1px solid rgba(0,212,170,0.25); border-radius: 20px; font-size: 11px; font-weight: 600; color: var(--green); letter-spacing: 1px; }
+    .pdot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); animation: breathe 1.3s ease-in-out infinite; }
 
-    /* animated dot grid */
-    body::before {
-      content: '';
-      position: fixed; inset: 0;
-      background-image: radial-gradient(circle, rgba(0,212,170,0.06) 1px, transparent 1px);
-      background-size: 32px 32px;
-      pointer-events: none;
-      z-index: 0;
-    }
+    /* ── PORTFOLIO SUMMARY BAR ── */
+    .summary-bar { position: relative; z-index: 1; display: grid; grid-template-columns: repeat(5,1fr); border-bottom: 1px solid var(--border); background: rgba(13,17,23,0.8); }
+    .sb-cell { padding: 12px 18px; border-right: 1px solid var(--border); }
+    .sb-cell:last-child { border-right: none; }
+    .sb-lbl { font-size: 9px; color: var(--dim); letter-spacing: 1.2px; text-transform: uppercase; margin-bottom: 3px; }
+    .sb-val { font-family: 'JetBrains Mono', monospace; font-size: 20px; font-weight: 800; color: var(--bright); }
+    .sb-val.g { color: var(--green); } .sb-val.r { color: var(--red); }
+    .sb-sub { font-size: 10px; color: var(--dim); margin-top: 1px; }
 
-    /* ── HEADER ──────────────────────────────────────────────────── */
-    header {
-      position: relative; z-index: 10;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 16px 32px;
-      background: rgba(7,9,15,0.85);
-      backdrop-filter: blur(16px);
-      border-bottom: 1px solid var(--border);
-    }
+    /* ── MAIN ── */
+    main { position: relative; z-index: 1; padding: 20px 20px 0; }
 
-    .logo-row {
-      display: flex; align-items: center; gap: 12px;
-    }
+    /* ── BOT GRID ── */
+    .bot-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; }
 
-    .nav-links {
-      display: flex; gap: 24px;
-    }
-    .nav-link {
-      font-size: 13px; font-weight: 500;
-      color: var(--dim);
-      text-decoration: none;
-      transition: color 0.2s;
-    }
-    .nav-link:hover, .nav-link.active { color: var(--accent); }
+    /* ── BOT CARD ── */
+    .bot-card { background: var(--card); border: 2px solid var(--border); border-radius: 18px; padding: 18px; position: relative; overflow: hidden; transition: border-color .3s; }
+    .bot-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; border-radius: 18px 18px 0 0; }
+    .bot-card.movers   { --bc: #00d4aa; } .bot-card.movers::before   { background: linear-gradient(90deg,#00d4aa,#00ffcc); }
+    .bot-card.mayhem   { --bc: #ff4d6d; } .bot-card.mayhem::before   { background: linear-gradient(90deg,#ff4d6d,#ff8c42); }
+    .bot-card.newcoins { --bc: #a78bfa; } .bot-card.newcoins::before { background: linear-gradient(90deg,#a78bfa,#38bdf8); }
+    .bot-card.highcap  { --bc: #ffd166; } .bot-card.highcap::before  { background: linear-gradient(90deg,#ffd166,#fb923c); }
+    .bot-card.active   { border-color: var(--bc); box-shadow: 0 0 24px rgba(0,0,0,0.4); }
 
-    .logo-text { font-size: 18px; font-weight: 800; color: var(--bright); }
-    .logo-text span { color: var(--accent); }
+    /* card top row */
+    .bc-top { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+    .bc-avatar { width: 44px; height: 44px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 22px; flex-shrink: 0; }
+    .movers   .bc-avatar { background: rgba(0,212,170,0.12); }
+    .mayhem   .bc-avatar { background: rgba(255,77,109,0.12); }
+    .newcoins .bc-avatar { background: rgba(167,139,250,0.12); }
+    .highcap  .bc-avatar { background: rgba(255,209,102,0.12); }
+    .bc-info { flex: 1; }
+    .bc-name  { font-size: 14px; font-weight: 800; color: var(--bright); }
+    .bc-strat { font-size: 10px; color: var(--dim); margin-top: 1px; letter-spacing: .5px; }
 
-    .status-pill {
-      display: flex; align-items: center; gap: 8px;
-      padding: 6px 16px;
-      background: rgba(0,212,170,0.08);
-      border: 1px solid rgba(0,212,170,0.25);
-      border-radius: 24px;
-      font-size: 12px; font-weight: 600;
-      color: var(--accent);
-      letter-spacing: 1px;
-    }
-    .pulse-dot {
-      width: 7px; height: 7px; border-radius: 50%;
-      background: var(--accent);
-      animation: breathe 1.3s ease-in-out infinite;
-    }
+    /* status badge */
+    .bc-status { display: flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 20px; font-size: 10px; font-weight: 700; letter-spacing: .5px; border: 1px solid; }
+    .bc-status.scanning { color: var(--dim);  border-color: var(--dim);  background: rgba(74,85,104,.1); }
+    .bc-status.buying   { color: var(--green); border-color: var(--green); background: rgba(0,212,170,.1); }
+    .bc-status.holding  { color: var(--yellow); border-color: var(--yellow); background: rgba(255,209,102,.1); }
+    .bc-status.selling  { color: var(--red);   border-color: var(--red);   background: rgba(255,77,109,.1); }
+    .bc-status-dot { width: 5px; height: 5px; border-radius: 50%; background: currentColor; animation: breathe 1.2s ease-in-out infinite; }
 
-    /* ── LAYOUT ──────────────────────────────────────────────────── */
-    main {
-      position: relative; z-index: 1;
-      display: grid;
-      grid-template-columns: 420px 1fr;
-      gap: 0;
-      height: calc(100vh - 65px);
-    }
+    /* balance row */
+    .bc-bal-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 12px; }
+    .bc-stat { background: var(--card2); border-radius: 8px; padding: 8px 10px; }
+    .bc-stat-lbl { font-size: 9px; color: var(--dim); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 3px; }
+    .bc-stat-val { font-family: 'JetBrains Mono', monospace; font-size: 14px; font-weight: 700; color: var(--bright); }
+    .bc-stat-val.g { color: var(--green); } .bc-stat-val.r { color: var(--red); }
 
-    /* ── LEFT: BOT STAGE ─────────────────────────────────────────── */
-    .bot-stage {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      padding: 32px 28px;
-      border-right: 1px solid var(--border);
-      background: linear-gradient(180deg, #0a0f1a 0%, var(--bg) 100%);
-      position: relative;
-      overflow: hidden;
-      gap: 0;
-    }
+    /* current position */
+    .bc-pos { background: var(--card2); border-radius: 8px; padding: 8px 12px; margin-bottom: 10px; min-height: 36px; display: flex; align-items: center; gap: 10px; }
+    .bc-pos-empty { font-size: 11px; color: var(--dim); }
+    .bc-pos-coin { font-size: 13px; font-weight: 700; color: var(--bright); }
+    .bc-pos-detail { font-size: 10px; color: var(--dim); font-family: 'JetBrains Mono', monospace; flex: 1; }
+    .bc-pos-pnl { font-family: 'JetBrains Mono', monospace; font-size: 13px; font-weight: 700; }
+    .bc-pos-pnl.g { color: var(--green); } .bc-pos-pnl.r { color: var(--red); }
 
-    /* radial glow behind bot */
-    .stage-glow {
-      position: absolute;
-      top: 50%; left: 50%;
-      transform: translate(-50%, -55%);
-      width: 320px; height: 320px;
-      background: radial-gradient(circle, rgba(0,212,170,0.12) 0%, transparent 70%);
-      pointer-events: none;
-      animation: glowPulse 2.5s ease-in-out infinite;
-    }
+    /* activity feed */
+    .bc-feed { display: flex; flex-direction: column; gap: 4px; }
+    .bc-feed-row { display: flex; align-items: center; gap: 8px; font-size: 11px; padding: 4px 0; border-bottom: 1px solid rgba(30,45,61,0.5); }
+    .bc-feed-row:last-child { border-bottom: none; }
+    .f-tag { font-size: 9px; font-weight: 700; letter-spacing: 1px; padding: 1px 6px; border-radius: 4px; flex-shrink: 0; }
+    .f-tag.B { background: rgba(0,212,170,.15); color: var(--green); }
+    .f-tag.S { background: rgba(255,77,109,.15); color: var(--red); }
+    .f-tok { font-weight: 600; color: var(--bright); flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .f-pnl { font-family: 'JetBrains Mono', monospace; font-weight: 700; flex-shrink: 0; }
+    .f-pnl.g { color: var(--green); } .f-pnl.r { color: var(--red); } .f-pnl.n { color: var(--dim); }
+    .f-time { font-size: 9px; color: var(--dim); flex-shrink: 0; }
 
-    /* orbiting particles */
-    .orbit {
-      position: absolute;
-      top: 50%; left: 50%;
-      transform: translate(-50%, -55%);
-      width: 260px; height: 260px;
-      pointer-events: none;
-    }
-    .orbit-ring {
-      position: absolute; inset: 0;
-      border: 1px dashed rgba(0,212,170,0.12);
-      border-radius: 50%;
-      animation: spin 8s linear infinite;
-    }
-    .orbit-dot {
-      position: absolute;
-      width: 6px; height: 6px;
-      border-radius: 50%;
-      background: var(--accent);
-      top: -3px; left: 50%;
-      margin-left: -3px;
-      box-shadow: 0 0 8px var(--accent);
-    }
-    .orbit-ring:nth-child(2) { inset: 30px; animation-duration: 5s; animation-direction: reverse; }
-    .orbit-ring:nth-child(2) .orbit-dot { background: var(--accent2); box-shadow: 0 0 8px var(--accent2); }
-
-    /* big bot svg */
-    .bot-svg-wrap {
-      position: relative; z-index: 2;
-      width: 200px; height: 200px;
-      margin-bottom: 28px;
-      animation: float 3.5s ease-in-out infinite;
-    }
-
-    /* status text */
-    .bot-phase {
-      position: relative; z-index: 2;
-      font-size: 11px; font-weight: 700;
-      letter-spacing: 3px; text-transform: uppercase;
-      color: var(--accent);
-      margin-bottom: 6px;
-      animation: textBlink 1.8s ease-in-out infinite;
-    }
-    .bot-detail {
-      position: relative; z-index: 2;
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 12px;
-      color: var(--dim);
-      text-align: center;
-      height: 18px;
-      margin-bottom: 32px;
-    }
-
-    /* ── STATS ROW ───────────────────────────────────────────────── */
-    .stats-row {
-      position: relative; z-index: 2;
-      display: grid;
-      grid-template-columns: 1fr 1fr 1fr;
-      gap: 10px;
-      width: 100%;
-      margin-bottom: 24px;
-    }
-    .s-card {
-      background: rgba(13,17,23,0.8);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 12px 14px;
-      text-align: center;
-    }
-    .s-lbl { font-size: 9px; color: var(--dim); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 4px; }
-    .s-val { font-family: 'JetBrains Mono', monospace; font-size: 16px; font-weight: 700; color: var(--bright); }
-    .s-val.green { color: var(--green); }
-    .s-val.red   { color: var(--red);   }
-
-    /* ── SIGNAL FEED (left col bottom) ───────────────────────────── */
-    .feed-title {
-      position: relative; z-index: 2;
-      font-size: 10px; font-weight: 600; letter-spacing: 1.5px;
-      color: var(--dim); text-transform: uppercase;
-      align-self: flex-start; width: 100%;
-      margin-bottom: 8px;
-    }
-    .feed-list {
-      position: relative; z-index: 2;
-      display: flex; flex-direction: column; gap: 6px;
-      width: 100%;
-    }
-    .feed-item {
-      display: flex; align-items: center; gap: 10px;
-      background: rgba(13,17,23,0.7);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 8px 12px;
-      font-size: 12px;
-      animation: slideRight 0.3s ease;
-    }
-    .f-badge {
-      font-size: 10px; font-weight: 700; letter-spacing: 1px;
-      padding: 2px 8px; border-radius: 5px; flex-shrink: 0;
-    }
-    .f-badge.BUY  { background: rgba(0,212,170,0.15); color: var(--green); border: 1px solid rgba(0,212,170,0.3); }
-    .f-badge.SELL { background: rgba(255,77,109,0.15); color: var(--red);   border: 1px solid rgba(255,77,109,0.3); }
-    .f-tok  { font-weight: 600; color: var(--bright); flex: 1; }
-    .f-pnl  { font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 700; }
-    .f-pnl.pos { color: var(--green); }
-    .f-pnl.neg { color: var(--red);   }
-    .f-pnl.neu { color: var(--dim); }
-    .f-time { font-size: 10px; color: var(--dim); flex-shrink: 0; }
-
-    /* ── RIGHT: TRADING PANEL ────────────────────────────────────── */
-    .trading-panel {
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-    }
-
-    /* portfolio bar */
-    .port-bar {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      border-bottom: 1px solid var(--border);
-      flex-shrink: 0;
-    }
-    .port-cell {
-      padding: 16px 20px;
-      border-right: 1px solid var(--border);
-      position: relative;
-    }
-    .port-cell:last-child { border-right: none; }
-    .port-cell::after {
-      content: '';
-      position: absolute; top: 0; left: 0; right: 0; height: 2px;
-      background: linear-gradient(90deg, var(--accent), var(--accent2));
-      opacity: 0;
-      transition: opacity 0.3s;
-    }
-    .port-cell.glow::after { opacity: 1; }
-    .pc-lbl { font-size: 10px; color: var(--dim); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 4px; }
-    .pc-val { font-family: 'JetBrains Mono', monospace; font-size: 22px; font-weight: 700; color: var(--bright); }
-    .pc-val.green { color: var(--green); }
-    .pc-val.red   { color: var(--red);   }
-    .pc-sub { font-size: 11px; color: var(--dim); margin-top: 2px; }
-
-    /* chart section */
-    .chart-section {
-      padding: 20px 24px 12px;
-      border-bottom: 1px solid var(--border);
-      flex-shrink: 0;
-      height: 220px;
-      display: flex;
-      flex-direction: column;
-    }
-    .chart-hdr {
-      display: flex; justify-content: space-between; align-items: center;
-      margin-bottom: 12px;
-    }
-    .chart-title { font-size: 11px; font-weight: 600; color: var(--dim); letter-spacing: 1px; text-transform: uppercase; }
-    .chart-live-val { font-family: 'JetBrains Mono', monospace; font-size: 18px; font-weight: 700; color: var(--bright); }
-    .chart-chg { font-size: 12px; }
-    #equity-canvas { flex: 1; }
-
-    /* ── TRADE LOG ───────────────────────────────────────────────── */
-    .log-section {
-      flex: 1;
-      overflow: hidden;
-      display: flex;
-      flex-direction: column;
-    }
-    .log-hdr {
-      padding: 14px 24px 10px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      flex-shrink: 0;
-    }
-    .log-title-text { font-size: 11px; font-weight: 600; color: var(--dim); letter-spacing: 1px; text-transform: uppercase; }
-    .log-count { font-size: 10px; color: var(--dim); }
-    .log-scroll {
-      flex: 1;
-      overflow-y: auto;
-      padding: 0 24px 16px;
-    }
-    .log-scroll::-webkit-scrollbar { width: 3px; }
-    .log-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
-
+    /* ── TRADE LOG TABLE ── */
+    .log-panel { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 18px 20px; margin-bottom: 20px; }
+    .log-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+    .log-title { font-size: 12px; font-weight: 700; color: var(--dim); letter-spacing: 1px; text-transform: uppercase; }
+    .log-count { font-size: 11px; color: var(--dim); font-family: 'JetBrains Mono', monospace; }
     table { width: 100%; border-collapse: collapse; }
-    th {
-      position: sticky; top: 0;
-      background: var(--bg);
-      text-align: left;
-      font-size: 9px; font-weight: 600;
-      color: var(--dim); letter-spacing: 1px; text-transform: uppercase;
-      padding: 6px 8px 10px;
-      border-bottom: 1px solid var(--border);
-    }
-    td {
-      padding: 9px 8px;
-      border-bottom: 1px solid rgba(30,45,61,0.4);
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 11px;
-    }
-    tr.new-row { animation: slideRight 0.35s ease; }
-    tr:hover td { background: rgba(255,255,255,0.02); }
+    th { text-align: left; font-size: 9px; color: var(--dim); letter-spacing: 1.2px; text-transform: uppercase; padding: 0 8px 8px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+    td { padding: 8px; border-bottom: 1px solid rgba(30,45,61,0.4); font-family: 'JetBrains Mono', monospace; font-size: 11px; white-space: nowrap; }
+    tr:hover td { background: rgba(255,255,255,.02); }
+    tr.new-row { animation: slideUp .3s ease; }
+    .tag { display: inline-block; padding: 2px 7px; border-radius: 4px; font-size: 9px; font-weight: 700; letter-spacing: .5px; }
+    .tag.BUY  { background: rgba(0,212,170,.12); color: var(--green); border: 1px solid rgba(0,212,170,.25); }
+    .tag.SELL { background: rgba(255,77,109,.12); color: var(--red);   border: 1px solid rgba(255,77,109,.25); }
+    .bot-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 5px; vertical-align: middle; }
+    .pos { color: var(--green); } .neg { color: var(--red); } .neu { color: var(--dim); }
 
-    .tag {
-      display: inline-block;
-      padding: 2px 8px; border-radius: 5px;
-      font-size: 9px; font-weight: 700; letter-spacing: 1px;
-    }
-    .tag.BUY  { background: rgba(0,212,170,0.12); color: var(--green); border: 1px solid rgba(0,212,170,0.25); }
-    .tag.SELL { background: rgba(255,77,109,0.12); color: var(--red);   border: 1px solid rgba(255,77,109,0.25); }
-    .pos { color: var(--green); }
-    .neg { color: var(--red);   }
-    .neu { color: var(--dim);   }
-
-    /* ── ANIMATIONS ──────────────────────────────────────────────── */
-    @keyframes breathe   { 0%,100%{opacity:1} 50%{opacity:0.25} }
-    @keyframes glowPulse { 0%,100%{opacity:0.7} 50%{opacity:1} }
-    @keyframes textBlink { 0%,100%{opacity:1} 50%{opacity:0.4} }
-    @keyframes float     { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-8px)} }
-    @keyframes spin      { to{transform:rotate(360deg)} }
-    @keyframes slideRight { from{opacity:0;transform:translateX(-12px)} to{opacity:1;transform:none} }
-
-    @media (max-width: 900px) {
-      main { grid-template-columns: 1fr; }
-      .bot-stage { height: auto; border-right: none; border-bottom: 1px solid var(--border); }
-    }
-    #bnav {
-      position: fixed; bottom: 0; left: 0; right: 0; z-index: 99999;
-      display: flex; height: 62px;
-      background: rgba(10,13,20,0.98); backdrop-filter: blur(20px);
-      border-top: 1px solid #00d4aa33;
-      pointer-events: all;
-    }
+    /* ── BOTTOM NAV ── */
+    #bnav { position: fixed; bottom: 0; left: 0; right: 0; z-index: 99999; display: flex; height: 62px; background: rgba(10,13,20,0.98); backdrop-filter: blur(20px); border-top: 1px solid #00d4aa33; pointer-events: all; }
     .bn { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; text-decoration: none; color: #4a5568; font-size: 10px; font-weight: 600; letter-spacing: 0.4px; transition: color 0.18s, background 0.18s; border-right: 1px solid #1e2d3d; cursor: pointer; -webkit-tap-highlight-color: transparent; }
     .bn:last-child { border-right: none; }
     .bn:hover { color: #e2e8f0; background: rgba(255,255,255,0.05); }
     .bn.cur { color: #00d4aa; background: rgba(0,212,170,0.06); }
     .bn-ic { font-size: 20px; line-height: 1; }
-    main { height: calc(100vh - 65px - 62px); }
+
+    /* ── ANIMATIONS ── */
+    @keyframes breathe  { 0%,100%{opacity:1} 50%{opacity:.25} }
+    @keyframes slideUp  { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:none} }
+
+    @media (max-width: 700px) {
+      .bot-grid { grid-template-columns: 1fr; }
+      .summary-bar { grid-template-columns: 1fr 1fr; }
+      nav { display: none; }
+    }
   </style>
 </head>
 <body>
 
-<!-- ════════════ HEADER ════════════════════════════════════════════ -->
+<!-- HEADER -->
 <header>
   <div class="logo-row">
-    <svg width="36" height="36" viewBox="0 0 42 42" fill="none">
+    <svg width="34" height="34" viewBox="0 0 42 42" fill="none">
       <rect x="8" y="13" width="26" height="20" rx="5" fill="#0d1117" stroke="#00d4aa" stroke-width="1.5"/>
-      <rect x="13" y="19" width="5" height="5" rx="1.5" fill="#00d4aa">
-        <animate attributeName="opacity" values="1;0.2;1" dur="2s" repeatCount="indefinite"/>
-      </rect>
-      <rect x="24" y="19" width="5" height="5" rx="1.5" fill="#00d4aa">
-        <animate attributeName="opacity" values="1;0.2;1" dur="2s" begin="0.3s" repeatCount="indefinite"/>
-      </rect>
-      <rect x="16" y="27" width="10" height="2.5" rx="1.25" fill="#00d4aa" opacity="0.5"/>
+      <rect x="13" y="19" width="5" height="5" rx="1.5" fill="#00d4aa"><animate attributeName="opacity" values="1;.2;1" dur="2s" repeatCount="indefinite"/></rect>
+      <rect x="24" y="19" width="5" height="5" rx="1.5" fill="#00d4aa"><animate attributeName="opacity" values="1;.2;1" dur="2s" begin=".3s" repeatCount="indefinite"/></rect>
+      <rect x="16" y="27" width="10" height="2.5" rx="1.25" fill="#00d4aa" opacity=".5"/>
       <rect x="19" y="8" width="4" height="5" rx="2" fill="#00d4aa"/>
       <circle cx="21" cy="7" r="2" fill="#00d4aa"/>
       <rect x="2" y="18" width="6" height="2.5" rx="1.25" fill="#1e2d3d"/>
@@ -384,547 +149,454 @@
     </svg>
     <div class="logo-text">AI <span>Trading</span> Bot</div>
   </div>
-
-  <nav class="nav-links">
-    <a href="index.html" class="nav-link">Dashboard</a>
+  <nav>
+    <a href="index.html"   class="nav-link">Dashboard</a>
     <a href="trading.html" class="nav-link active">Live Trading</a>
+    <a href="account.html" class="nav-link">Account</a>
+    <a href="scanner.html" class="nav-link">Scanner</a>
   </nav>
-
-  <div class="status-pill">
-    <div class="pulse-dot"></div>
-    PAPER TRADING ACTIVE
-  </div>
+  <div class="pill"><div class="pdot"></div>4 BOTS LIVE</div>
 </header>
 
-<!-- ════════════ MAIN ══════════════════════════════════════════════ -->
+<!-- PORTFOLIO SUMMARY BAR -->
+<div class="summary-bar">
+  <div class="sb-cell">
+    <div class="sb-lbl">Total Portfolio</div>
+    <div class="sb-val" id="s-total">$2,000.00</div>
+    <div class="sb-sub">4 bots · started $2,000</div>
+  </div>
+  <div class="sb-cell">
+    <div class="sb-lbl">Total P&L</div>
+    <div class="sb-val" id="s-pnl">+$0.00</div>
+    <div class="sb-sub" id="s-pnlpct">0.00%</div>
+  </div>
+  <div class="sb-cell">
+    <div class="sb-lbl">Total Trades</div>
+    <div class="sb-val" id="s-trades">0</div>
+    <div class="sb-sub" id="s-wr">Win rate: –</div>
+  </div>
+  <div class="sb-cell">
+    <div class="sb-lbl">Best Bot</div>
+    <div class="sb-val g" id="s-bestbot">–</div>
+    <div class="sb-sub" id="s-bestpnl">–</div>
+  </div>
+  <div class="sb-cell">
+    <div class="sb-lbl">Active Positions</div>
+    <div class="sb-val" id="s-positions">0 / 4</div>
+    <div class="sb-sub">bots in market</div>
+  </div>
+</div>
+
+<!-- MAIN -->
 <main>
 
-  <!-- ── LEFT: BOT ANIMATION ─────────────────────────────────────── -->
-  <div class="bot-stage">
-    <div class="stage-glow"></div>
+  <!-- 4-bot grid -->
+  <div class="bot-grid">
 
-    <!-- orbiting rings -->
-    <div class="orbit">
-      <div class="orbit-ring"><div class="orbit-dot"></div></div>
-      <div class="orbit-ring"><div class="orbit-dot"></div></div>
-    </div>
-
-    <!-- Bot SVG -->
-    <div class="bot-svg-wrap">
-      <svg viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg" width="200" height="200">
-        <!-- body shadow -->
-        <ellipse cx="100" cy="185" rx="45" ry="8" fill="rgba(0,212,170,0.08)"/>
-
-        <!-- body -->
-        <rect x="28" y="70" width="144" height="100" rx="22" fill="#0d1117" stroke="#00d4aa" stroke-width="2"/>
-
-        <!-- body gradient overlay -->
-        <rect x="28" y="70" width="144" height="100" rx="22" fill="url(#bodyG)" opacity="0.15"/>
-
-        <!-- antenna post -->
-        <rect x="92" y="30" width="16" height="40" rx="8" fill="#1e2d3d"/>
-        <!-- antenna tip glow -->
-        <circle cx="100" cy="24" r="10" fill="rgba(0,212,170,0.2)">
-          <animate attributeName="r" values="10;14;10" dur="1.6s" repeatCount="indefinite"/>
-          <animate attributeName="opacity" values="0.2;0.5;0.2" dur="1.6s" repeatCount="indefinite"/>
-        </circle>
-        <circle cx="100" cy="24" r="6" fill="#00d4aa">
-          <animate attributeName="opacity" values="1;0.4;1" dur="1.6s" repeatCount="indefinite"/>
-        </circle>
-
-        <!-- left arm -->
-        <rect x="4" y="88" width="24" height="12" rx="6" fill="#1e2d3d" stroke="#00d4aa" stroke-width="1.5"/>
-        <!-- arm hand -->
-        <circle cx="7" cy="94" r="4" fill="#1e2d3d" stroke="#00d4aa" stroke-width="1.5"/>
-
-        <!-- right arm -->
-        <rect x="172" y="88" width="24" height="12" rx="6" fill="#1e2d3d" stroke="#00d4aa" stroke-width="1.5"/>
-        <circle cx="193" cy="94" r="4" fill="#1e2d3d" stroke="#00d4aa" stroke-width="1.5"/>
-
-        <!-- left leg -->
-        <rect x="54" y="166" width="28" height="18" rx="9" fill="#1e2d3d" stroke="#00d4aa" stroke-width="1.5"/>
-        <!-- right leg -->
-        <rect x="118" y="166" width="28" height="18" rx="9" fill="#1e2d3d" stroke="#00d4aa" stroke-width="1.5"/>
-
-        <!-- left eye socket -->
-        <rect x="46" y="90" width="38" height="28" rx="8" fill="rgba(0,212,170,0.06)" stroke="rgba(0,212,170,0.2)" stroke-width="1"/>
-        <!-- left eye pupil -->
-        <rect x="57" y="98" width="16" height="12" rx="4" fill="#00d4aa">
-          <animateTransform attributeName="transform" type="scale" values="1 1;1 0.08;1 1"
-            dur="3.2s" additive="sum" repeatCount="indefinite" begin="0.5s"/>
-        </rect>
-
-        <!-- right eye socket -->
-        <rect x="116" y="90" width="38" height="28" rx="8" fill="rgba(0,212,170,0.06)" stroke="rgba(0,212,170,0.2)" stroke-width="1"/>
-        <!-- right eye pupil -->
-        <rect x="127" y="98" width="16" height="12" rx="4" fill="#00d4aa">
-          <animateTransform attributeName="transform" type="scale" values="1 1;1 0.08;1 1"
-            dur="3.2s" additive="sum" repeatCount="indefinite" begin="0.9s"/>
-        </rect>
-
-        <!-- mouth panel -->
-        <rect x="60" y="130" width="80" height="18" rx="6" fill="#1e2d3d"/>
-        <!-- scrolling mouth bar (EQ bar) -->
-        <rect x="64" y="134" width="4" height="10" rx="2" fill="#00d4aa" opacity="0.4">
-          <animate attributeName="height" values="4;10;6;10;4" dur="0.9s" repeatCount="indefinite"/>
-          <animate attributeName="y" values="139;134;137;134;139" dur="0.9s" repeatCount="indefinite"/>
-        </rect>
-        <rect x="71" y="134" width="4" height="10" rx="2" fill="#00d4aa" opacity="0.6">
-          <animate attributeName="height" values="10;4;8;4;10" dur="0.7s" repeatCount="indefinite"/>
-          <animate attributeName="y" values="134;139;136;139;134" dur="0.7s" repeatCount="indefinite"/>
-        </rect>
-        <rect x="78" y="134" width="4" height="10" rx="2" fill="#00d4aa" opacity="0.9">
-          <animate attributeName="height" values="6;10;4;10;6" dur="1.1s" repeatCount="indefinite"/>
-          <animate attributeName="y" values="137;134;139;134;137" dur="1.1s" repeatCount="indefinite"/>
-        </rect>
-        <rect x="85" y="134" width="4" height="10" rx="2" fill="#00d4aa">
-          <animate attributeName="height" values="10;6;10;4;10" dur="0.8s" repeatCount="indefinite"/>
-          <animate attributeName="y" values="134;137;134;139;134" dur="0.8s" repeatCount="indefinite"/>
-        </rect>
-        <rect x="92" y="134" width="4" height="10" rx="2" fill="#00d4aa" opacity="0.7">
-          <animate attributeName="height" values="4;8;10;8;4" dur="1s" repeatCount="indefinite"/>
-          <animate attributeName="y" values="139;136;134;136;139" dur="1s" repeatCount="indefinite"/>
-        </rect>
-        <rect x="99" y="134" width="4" height="10" rx="2" fill="#00d4aa" opacity="0.5">
-          <animate attributeName="height" values="8;4;6;10;8" dur="0.75s" repeatCount="indefinite"/>
-          <animate attributeName="y" values="136;139;137;134;136" dur="0.75s" repeatCount="indefinite"/>
-        </rect>
-        <rect x="106" y="134" width="4" height="10" rx="2" fill="#00d4aa" opacity="0.8">
-          <animate attributeName="height" values="10;8;4;8;10" dur="0.95s" repeatCount="indefinite"/>
-          <animate attributeName="y" values="134;136;139;136;134" dur="0.95s" repeatCount="indefinite"/>
-        </rect>
-        <rect x="113" y="134" width="4" height="10" rx="2" fill="#00d4aa" opacity="0.45">
-          <animate attributeName="height" values="6;10;8;4;6" dur="1.15s" repeatCount="indefinite"/>
-          <animate attributeName="y" values="137;134;136;139;137" dur="1.15s" repeatCount="indefinite"/>
-        </rect>
-
-        <!-- gear (brain) icon -->
-        <g transform="translate(166,160)">
-          <circle cx="0" cy="0" r="14" fill="rgba(0,212,170,0.06)" stroke="rgba(0,212,170,0.15)" stroke-width="1"/>
-          <g>
-            <animateTransform attributeName="transform" type="rotate" from="0" to="360" dur="6s" repeatCount="indefinite" additive="sum"/>
-            <circle cx="0" cy="0" r="7" stroke="#00d4aa" stroke-width="1.5" fill="none"/>
-            <circle cx="0" cy="0" r="3" fill="#00d4aa" opacity="0.6"/>
-            <rect x="-1" y="-9" width="2" height="4" rx="1" fill="#00d4aa"/>
-            <rect x="-1" y="5"  width="2" height="4" rx="1" fill="#00d4aa"/>
-            <rect x="-9" y="-1" width="4" height="2" rx="1" fill="#00d4aa"/>
-            <rect x="5"  y="-1" width="4" height="2" rx="1" fill="#00d4aa"/>
-          </g>
-        </g>
-
-        <!-- wifi icon (scanning) -->
-        <g transform="translate(34,160)">
-          <circle cx="0" cy="0" r="14" fill="rgba(0,212,170,0.06)" stroke="rgba(0,212,170,0.15)" stroke-width="1"/>
-          <path d="M-6 2 Q0 -4 6 2" stroke="#00d4aa" stroke-width="1.5" fill="none" stroke-linecap="round">
-            <animate attributeName="opacity" values="0.3;1;0.3" dur="1.2s" repeatCount="indefinite"/>
-          </path>
-          <path d="M-10 6 Q0 -8 10 6" stroke="#00d4aa" stroke-width="1.5" fill="none" stroke-linecap="round" opacity="0.5">
-            <animate attributeName="opacity" values="0.1;0.6;0.1" dur="1.2s" begin="0.3s" repeatCount="indefinite"/>
-          </path>
-          <circle cx="0" cy="5" r="2" fill="#00d4aa"/>
-        </g>
-
-        <defs>
-          <linearGradient id="bodyG" x1="28" y1="70" x2="172" y2="170" gradientUnits="userSpaceOnUse">
-            <stop stop-color="#00d4aa"/>
-            <stop offset="1" stop-color="#0099ff"/>
-          </linearGradient>
-        </defs>
-      </svg>
-    </div>
-
-    <div class="bot-phase" id="bot-phase">SCANNING MARKET</div>
-    <div class="bot-detail" id="bot-detail">Looking for entry signals…</div>
-
-    <!-- mini stats -->
-    <div class="stats-row">
-      <div class="s-card">
-        <div class="s-lbl">Balance</div>
-        <div class="s-val" id="s-bal">$1,000</div>
-      </div>
-      <div class="s-card">
-        <div class="s-lbl">P&amp;L</div>
-        <div class="s-val" id="s-pnl">$0.00</div>
-      </div>
-      <div class="s-card">
-        <div class="s-lbl">Trades</div>
-        <div class="s-val" id="s-trades">0</div>
-      </div>
-    </div>
-
-    <!-- signal feed -->
-    <div class="feed-title">Recent Signals</div>
-    <div class="feed-list" id="feed-list">
-      <div class="feed-item">
-        <span class="f-badge BUY">BUY</span>
-        <span class="f-tok">Waiting for first signal…</span>
-        <span class="f-pnl neu">–</span>
-        <span class="f-time">–</span>
-      </div>
-    </div>
-  </div>
-
-  <!-- ── RIGHT: TRADING PANEL ─────────────────────────────────────── -->
-  <div class="trading-panel">
-
-    <!-- portfolio stats bar -->
-    <div class="port-bar">
-      <div class="port-cell" id="pc-port">
-        <div class="pc-lbl">Portfolio Value</div>
-        <div class="pc-val" id="p-total">$1,000.00</div>
-        <div class="pc-sub">started $1,000.00</div>
-      </div>
-      <div class="port-cell">
-        <div class="pc-lbl">Total P&amp;L</div>
-        <div class="pc-val" id="p-pnl">+$0.00</div>
-        <div class="pc-sub" id="p-pnlpct">0.00%</div>
-      </div>
-      <div class="port-cell">
-        <div class="pc-lbl">Win Rate</div>
-        <div class="pc-val" id="p-wr">–</div>
-        <div class="pc-sub" id="p-wrsub">0 trades</div>
-      </div>
-      <div class="port-cell">
-        <div class="pc-lbl">Best Trade</div>
-        <div class="pc-val green" id="p-best">–</div>
-        <div class="pc-sub" id="p-bestok">–</div>
-      </div>
-    </div>
-
-    <!-- equity curve -->
-    <div class="chart-section">
-      <div class="chart-hdr">
-        <span class="chart-title">Portfolio Equity Curve</span>
-        <div style="text-align:right">
-          <div class="chart-live-val" id="c-val">$1,000.00</div>
-          <div class="chart-chg" id="c-chg" style="color:var(--dim)">+$0.00 (0.00%)</div>
+    <!-- BOT 1: MOVERS -->
+    <div class="bot-card movers" id="card-movers">
+      <div class="bc-top">
+        <div class="bc-avatar">📈</div>
+        <div class="bc-info">
+          <div class="bc-name">Movers Bot</div>
+          <div class="bc-strat">Targets biggest % gainers with real volume</div>
+        </div>
+        <div class="bc-status scanning" id="status-movers">
+          <div class="bc-status-dot"></div>SCANNING
         </div>
       </div>
-      <canvas id="equity-canvas"></canvas>
-    </div>
-
-    <!-- trade log -->
-    <div class="log-section">
-      <div class="log-hdr">
-        <span class="log-title-text">Trade History</span>
-        <span class="log-count" id="log-count">0 trades</span>
+      <div class="bc-bal-row">
+        <div class="bc-stat"><div class="bc-stat-lbl">Balance</div><div class="bc-stat-val" id="bal-movers">$500.00</div></div>
+        <div class="bc-stat"><div class="bc-stat-lbl">P&L</div><div class="bc-stat-val" id="pnl-movers">+$0.00</div></div>
+        <div class="bc-stat"><div class="bc-stat-lbl">Trades</div><div class="bc-stat-val" id="trades-movers">0</div></div>
       </div>
-      <div class="log-scroll">
-        <table>
-          <thead>
-            <tr>
-              <th>#</th>
-              <th>Side</th>
-              <th>Token</th>
-              <th>Entry Price</th>
-              <th>Exit Price</th>
-              <th>Size</th>
-              <th>P&L</th>
-              <th>Return</th>
-              <th>Up / Down</th>
-              <th>Time</th>
-            </tr>
-          </thead>
-          <tbody id="trade-tbody"></tbody>
-        </table>
+      <div class="bc-pos" id="pos-movers"><span class="bc-pos-empty">No position open</span></div>
+      <div class="bc-feed" id="feed-movers">
+        <div class="bc-feed-row"><span class="f-pnl n">Waiting for first trade…</span></div>
       </div>
     </div>
 
+    <!-- BOT 2: MAYHEM -->
+    <div class="bot-card mayhem" id="card-mayhem">
+      <div class="bc-top">
+        <div class="bc-avatar">🔥</div>
+        <div class="bc-info">
+          <div class="bc-name">Mayhem Bot</div>
+          <div class="bc-strat">Hunts extreme volatility & volume spikes 3x+</div>
+        </div>
+        <div class="bc-status scanning" id="status-mayhem">
+          <div class="bc-status-dot"></div>SCANNING
+        </div>
+      </div>
+      <div class="bc-bal-row">
+        <div class="bc-stat"><div class="bc-stat-lbl">Balance</div><div class="bc-stat-val" id="bal-mayhem">$500.00</div></div>
+        <div class="bc-stat"><div class="bc-stat-lbl">P&L</div><div class="bc-stat-val" id="pnl-mayhem">+$0.00</div></div>
+        <div class="bc-stat"><div class="bc-stat-lbl">Trades</div><div class="bc-stat-val" id="trades-mayhem">0</div></div>
+      </div>
+      <div class="bc-pos" id="pos-mayhem"><span class="bc-pos-empty">No position open</span></div>
+      <div class="bc-feed" id="feed-mayhem">
+        <div class="bc-feed-row"><span class="f-pnl n">Waiting for first trade…</span></div>
+      </div>
+    </div>
+
+    <!-- BOT 3: NEW COINS -->
+    <div class="bot-card newcoins" id="card-newcoins">
+      <div class="bc-top">
+        <div class="bc-avatar">✨</div>
+        <div class="bc-info">
+          <div class="bc-name">New Launches Bot</div>
+          <div class="bc-strat">Snipes fresh tokens under 30 minutes old</div>
+        </div>
+        <div class="bc-status scanning" id="status-newcoins">
+          <div class="bc-status-dot"></div>SCANNING
+        </div>
+      </div>
+      <div class="bc-bal-row">
+        <div class="bc-stat"><div class="bc-stat-lbl">Balance</div><div class="bc-stat-val" id="bal-newcoins">$500.00</div></div>
+        <div class="bc-stat"><div class="bc-stat-lbl">P&L</div><div class="bc-stat-val" id="pnl-newcoins">+$0.00</div></div>
+        <div class="bc-stat"><div class="bc-stat-lbl">Trades</div><div class="bc-stat-val" id="trades-newcoins">0</div></div>
+      </div>
+      <div class="bc-pos" id="pos-newcoins"><span class="bc-pos-empty">No position open</span></div>
+      <div class="bc-feed" id="feed-newcoins">
+        <div class="bc-feed-row"><span class="f-pnl n">Waiting for first trade…</span></div>
+      </div>
+    </div>
+
+    <!-- BOT 4: HIGH CAP -->
+    <div class="bot-card highcap" id="card-highcap">
+      <div class="bc-top">
+        <div class="bc-avatar">💎</div>
+        <div class="bc-info">
+          <div class="bc-name">High Cap Bot</div>
+          <div class="bc-strat">Only trades established coins MC $100K+</div>
+        </div>
+        <div class="bc-status scanning" id="status-highcap">
+          <div class="bc-status-dot"></div>SCANNING
+        </div>
+      </div>
+      <div class="bc-bal-row">
+        <div class="bc-stat"><div class="bc-stat-lbl">Balance</div><div class="bc-stat-val" id="bal-highcap">$500.00</div></div>
+        <div class="bc-stat"><div class="bc-stat-lbl">P&L</div><div class="bc-stat-val" id="pnl-highcap">+$0.00</div></div>
+        <div class="bc-stat"><div class="bc-stat-lbl">Trades</div><div class="bc-stat-val" id="trades-highcap">0</div></div>
+      </div>
+      <div class="bc-pos" id="pos-highcap"><span class="bc-pos-empty">No position open</span></div>
+      <div class="bc-feed" id="feed-highcap">
+        <div class="bc-feed-row"><span class="f-pnl n">Waiting for first trade…</span></div>
+      </div>
+    </div>
+
+  </div><!-- /bot-grid -->
+
+  <!-- Combined Trade Log -->
+  <div class="log-panel">
+    <div class="log-head">
+      <span class="log-title">All Trade History</span>
+      <span class="log-count" id="log-count">0 trades across 4 bots</span>
+    </div>
+    <table>
+      <thead><tr>
+        <th>Bot</th><th>#</th><th>Side</th><th>Token</th>
+        <th>Entry</th><th>Exit</th><th>Size</th>
+        <th>P&L</th><th>Return</th><th>Time</th>
+      </tr></thead>
+      <tbody id="trade-tbody"></tbody>
+    </table>
   </div>
+
 </main>
 
+<!-- BOTTOM NAV -->
 <nav id="bnav">
   <a href="index.html"   class="bn">    <span class="bn-ic">🏠</span>Dashboard</a>
   <a href="trading.html" class="bn cur"><span class="bn-ic">🤖</span>Live Bot</a>
   <a href="account.html" class="bn">    <span class="bn-ic">💰</span>Account</a>
   <a href="scanner.html" class="bn">    <span class="bn-ic">🔍</span>Scanner</a>
 </nav>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+
 <script>
 'use strict';
 
-/* ── TOKEN UNIVERSE ──────────────────────────────────────────────── */
-const TOKENS = [
-  'BONKR','PEPEM','DOAI','FRGL','MWLF','TRBC','CYRT','ABUL',
-  'NAPE','VDFS','DKHS','PXCH','QTDG','LSBR','MMKG','CHDL',
-  'RKTAPE','SNBL','TBPP','MNCD','SGBL','GGCH','BSDG','HPCT',
-  'ZKDOG','ALPHR','GREMLN','VIBECAT',
+/* ── COIN UNIVERSE ── */
+const ALL_COINS = [
+  // movers pool — strong trending coins
+  { sym:'BONKR',  name:'BONK Reborn',   mc:45000,  age:40,  vol:2.1, pool:'movers'   },
+  { sym:'DOAI',   name:'Doge AI',        mc:62000,  age:55,  vol:3.1, pool:'movers'   },
+  { sym:'MWLF',   name:'Moon Wolf',      mc:38000,  age:35,  vol:2.4, pool:'movers'   },
+  { sym:'ABUL',   name:'Alpha Bull',     mc:55000,  age:48,  vol:1.9, pool:'movers'   },
+  { sym:'DKHS',   name:'Dark Horse',     mc:72000,  age:60,  vol:2.7, pool:'movers'   },
+  { sym:'SGBL',   name:'Sigma Bull',     mc:41000,  age:42,  vol:2.2, pool:'movers'   },
+  { sym:'SNBL',   name:'Sonic Bull',     mc:33000,  age:28,  vol:1.8, pool:'movers'   },
+  { sym:'RKTAPE', name:'Rocket Ape',     mc:59000,  age:50,  vol:3.0, pool:'movers'   },
+  // mayhem pool — extreme volatility
+  { sym:'TRBC',   name:'Turbo Cat',      mc:22000,  age:12,  vol:4.2, pool:'mayhem'   },
+  { sym:'TBPP',   name:'Turbo Pepe',     mc:18000,  age:8,   vol:5.1, pool:'mayhem'   },
+  { sym:'MMKG',   name:'Meme King',      mc:31000,  age:14,  vol:3.8, pool:'mayhem'   },
+  { sym:'ZKFG',   name:'Zero Frog',      mc:9000,   age:6,   vol:6.2, pool:'mayhem'   },
+  { sym:'HPCT',   name:'Hyper Cat',      mc:14000,  age:9,   vol:4.7, pool:'mayhem'   },
+  { sym:'VDFS',   name:'Void Fish',      mc:27000,  age:18,  vol:3.3, pool:'mayhem'   },
+  { sym:'GGCH',   name:'Giga Chad',      mc:8000,   age:5,   vol:7.1, pool:'mayhem'   },
+  { sym:'CYRT',   name:'Cyber Rat',      mc:19000,  age:11,  vol:4.4, pool:'mayhem'   },
+  // new coins pool — fresh launches
+  { sym:'FRGL',   name:'Frog Lord',      mc:4000,   age:2,   vol:1.2, pool:'newcoins' },
+  { sym:'PEPEM',  name:'Pepe Moon',      mc:6000,   age:5,   vol:1.5, pool:'newcoins' },
+  { sym:'NAPE',   name:'Neon Ape',       mc:3000,   age:3,   vol:1.1, pool:'newcoins' },
+  { sym:'PXCH',   name:'Pixel Chad',     mc:7000,   age:7,   vol:1.8, pool:'newcoins' },
+  { sym:'CHDL',   name:'Chad Lord',      mc:5000,   age:4,   vol:1.3, pool:'newcoins' },
+  { sym:'LSBR',   name:'Laser Bear',     mc:2000,   age:1,   vol:0.9, pool:'newcoins' },
+  { sym:'GREMLN', name:'Gremlin',        mc:4500,   age:3,   vol:1.4, pool:'newcoins' },
+  { sym:'MNCD',   name:'Moon Chad',      mc:8000,   age:8,   vol:1.6, pool:'newcoins' },
+  // highcap pool — established coins MC $100K+
+  { sym:'BSDG',   name:'Based Dog',      mc:120000, age:180, vol:1.4, pool:'highcap'  },
+  { sym:'QTDG',   name:'Quantum Dog',    mc:145000, age:220, vol:1.6, pool:'highcap'  },
+  { sym:'ALPHR',  name:'Alpha Dog',      mc:108000, age:195, vol:1.2, pool:'highcap'  },
+  { sym:'VBCT',   name:'Vibe Cat',       mc:175000, age:300, vol:1.8, pool:'highcap'  },
+  { sym:'ZKDOG',  name:'ZK Dog',         mc:132000, age:240, vol:1.5, pool:'highcap'  },
+  { sym:'MMLD',   name:'Moonwald',       mc:210000, age:360, vol:1.3, pool:'highcap'  },
+  { sym:'ALPBR',  name:'Alpha Bear',     mc:165000, age:280, vol:1.7, pool:'highcap'  },
+  { sym:'GIGAP',  name:'Giga Pump',      mc:190000, age:320, vol:1.4, pool:'highcap'  },
 ];
 
-const prices = {};
-TOKENS.forEach(t => { prices[t] = 0.000005 + Math.random() * 0.001; });
+// Assign prices
+ALL_COINS.forEach(c => {
+  c.price = (c.mc / 1e9) * (0.8 + Math.random() * 0.4);
+  c.initPrice = c.price;
+  c.pricePct = 0;
+});
+
+const SOL = 155;
 
 function tickPrices() {
-  TOKENS.forEach(t => {
-    const d = (Math.random() - 0.47) * 0.045;
-    prices[t] = Math.max(0.0000001, prices[t] * (1 + d));
+  ALL_COINS.forEach(c => {
+    // mayhem coins are more volatile
+    const v = c.pool === 'mayhem' ? 0.07 : c.pool === 'newcoins' ? 0.05 : c.pool === 'highcap' ? 0.015 : 0.04;
+    const d = (Math.random() - 0.47) * v;
+    c.price = Math.max(0.000001, c.price * (1 + d));
+    c.pricePct = ((c.price - c.initPrice) / c.initPrice) * 100;
+    // drift mc
+    c.mc = Math.max(500, c.mc * (1 + d * 0.5));
   });
 }
 
-/* ── BOT STATE ───────────────────────────────────────────────────── */
-const B = {
-  balance: 1000, start: 1000,
-  pos: null,   // { token, entry, qty, size, ts }
-  trades: [],
-  equityHist: [{ t: Date.now(), v: 1000 }],
-  num: 0, wins: 0, losses: 0,
-  bestPnl: 0, bestToken: '–',
+/* ── BOT DEFINITIONS ── */
+const BOTS = {
+  movers:   { id:'movers',   name:'Movers Bot',       color:'#00d4aa', start:500, balance:500, pos:null, trades:0, wins:0, losses:0, totalPnl:0, feed:[], holdMin:6000,  holdMax:15000 },
+  mayhem:   { id:'mayhem',   name:'Mayhem Bot',       color:'#ff4d6d', start:500, balance:500, pos:null, trades:0, wins:0, losses:0, totalPnl:0, feed:[], holdMin:3000,  holdMax:9000  },
+  newcoins: { id:'newcoins', name:'New Launches Bot', color:'#a78bfa', start:500, balance:500, pos:null, trades:0, wins:0, losses:0, totalPnl:0, feed:[], holdMin:4000,  holdMax:12000 },
+  highcap:  { id:'highcap',  name:'High Cap Bot',     color:'#ffd166', start:500, balance:500, pos:null, trades:0, wins:0, losses:0, totalPnl:0, feed:[], holdMin:10000, holdMax:25000 },
 };
 
-/* ── HELPERS ─────────────────────────────────────────────────────── */
+let holdUntil = { movers:0, mayhem:0, newcoins:0, highcap:0 };
+let allTradeLog = [];
+let totalTradeCount = 0;
+
+/* ── HELPERS ── */
+function el(id) { return document.getElementById(id); }
 function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
-
-function fmtD(n) {
-  const a = Math.abs(n);
-  const s = n < 0 ? '-' : '+';
-  return (n < 0 ? '-$' : '+$') + a.toFixed(2);
-}
-
-function fmtAbs(n) { return '$' + Math.abs(n).toFixed(2); }
+function poolCoins(pool) { return ALL_COINS.filter(c => c.pool === pool); }
 
 function fmtTime(ts) {
   return new Date(ts).toLocaleTimeString([], { hour:'2-digit', minute:'2-digit', second:'2-digit' });
 }
+function fmtD(n) { return (n >= 0 ? '+$' : '-$') + Math.abs(n).toFixed(2); }
 
-/* ── UI HELPERS ──────────────────────────────────────────────────── */
-function el(id) { return document.getElementById(id); }
-
-const PHASES = {
-  scan: ['SCANNING MARKET', 'ANALYZING SIGNALS', 'EVALUATING TOKENS', 'PROCESSING FEEDS'],
-  buy:  ['OPENING POSITION', 'PLACING BUY ORDER', 'EXECUTING BUY'],
-  hold: ['MONITORING POSITION', 'TRACKING PRICE', 'HOLDING…'],
-  sell: ['CLOSING POSITION', 'BOOKING PROFIT', 'EXECUTING SELL'],
-};
-
-function setPhase(p, detail) {
-  el('bot-phase').textContent = pick(PHASES[p] || PHASES.scan);
-  el('bot-detail').textContent = detail || '';
+/* ── STATUS BADGE ── */
+function setStatus(id, phase) {
+  const labels = { scanning:'SCANNING', buying:'BUYING', holding:'HOLDING', selling:'SELLING' };
+  const el2 = el('status-' + id);
+  el2.className = 'bc-status ' + phase;
+  el2.innerHTML = `<div class="bc-status-dot"></div>${labels[phase]}`;
 }
 
-/* ── SIGNAL FEED ─────────────────────────────────────────────────── */
-let feedItems = [];
-function pushFeed(type, token, pnl) {
-  feedItems.unshift({ type, token, pnl, ts: Date.now() });
-  if (feedItems.length > 4) feedItems.pop();
+/* ── BOT CARD GLOW ── */
+function setCardActive(id, on) {
+  const card = el('card-' + id);
+  if (on) card.classList.add('active'); else card.classList.remove('active');
+}
 
-  el('feed-list').innerHTML = feedItems.map(f => {
-    const pnlStr = f.pnl != null ? (f.pnl >= 0 ? '+' : '') + fmtAbs(f.pnl) : '–';
-    const pnlCls = f.pnl == null ? 'neu' : f.pnl >= 0 ? 'pos' : 'neg';
-    return `<div class="feed-item">
-      <span class="f-badge ${f.type}">${f.type}</span>
-      <span class="f-tok">${f.token}</span>
+/* ── OPEN POSITION ── */
+function openPos(bot) {
+  const coins = poolCoins(bot.id);
+  if (!coins.length || bot.balance < 10) return false;
+  const coin = pick(coins);
+  const size = Math.min(bot.balance * (0.15 + Math.random() * 0.35), bot.balance);
+  const qty  = size / coin.price;
+  bot.pos = { coin, entry: coin.price, size, qty, ts: Date.now() };
+  bot.balance -= size;
+  setStatus(bot.id, 'buying');
+  setCardActive(bot.id, true);
+  pushFeed(bot, 'B', coin.sym, null);
+  return true;
+}
+
+/* ── CLOSE POSITION ── */
+function closePos(bot) {
+  if (!bot.pos) return;
+  const { coin, entry, size, qty } = bot.pos;
+  const exit  = coin.price;
+  const value = qty * exit;
+  const pnl   = value - size;
+  const ret   = ((value / size) - 1) * 100;
+
+  bot.balance += value;
+  bot.trades++;
+  bot.totalPnl += pnl;
+  if (pnl >= 0) bot.wins++; else bot.losses++;
+
+  const tr = {
+    botId: bot.id, botName: bot.name, botColor: bot.color,
+    num: ++totalTradeCount, sym: coin.sym, name: coin.name,
+    entry, exit, size, pnl, ret, ts: Date.now(),
+  };
+  allTradeLog.unshift(tr);
+  pushFeed(bot, 'S', coin.sym, pnl);
+  addTableRow(tr);
+  bot.pos = null;
+  setStatus(bot.id, 'scanning');
+  setCardActive(bot.id, false);
+}
+
+/* ── FEED ── */
+function pushFeed(bot, type, sym, pnl) {
+  bot.feed.unshift({ type, sym, pnl, ts: Date.now() });
+  if (bot.feed.length > 3) bot.feed.pop();
+
+  const feedEl = el('feed-' + bot.id);
+  feedEl.innerHTML = bot.feed.map(f => {
+    const pnlStr = f.pnl != null ? (f.pnl >= 0 ? '+$' : '-$') + Math.abs(f.pnl).toFixed(2) : '–';
+    const pnlCls = f.pnl == null ? 'n' : f.pnl >= 0 ? 'g' : 'r';
+    return `<div class="bc-feed-row">
+      <span class="f-tag ${f.type}">${f.type === 'B' ? 'BUY' : 'SELL'}</span>
+      <span class="f-tok">${f.sym}</span>
       <span class="f-pnl ${pnlCls}">${pnlStr}</span>
       <span class="f-time">${fmtTime(f.ts)}</span>
     </div>`;
   }).join('');
 }
 
-/* ── PORTFOLIO UI ────────────────────────────────────────────────── */
-function updatePortUI() {
-  const liveVal = B.pos
-    ? B.balance + B.pos.qty * prices[B.pos.token]
-    : B.balance;
-  const pnl     = liveVal - B.start;
-  const pnlPct  = (pnl / B.start) * 100;
-  const total   = B.wins + B.losses;
-  const wr      = total > 0 ? Math.round((B.wins / total) * 100) : null;
-
-  // left mini stats
-  el('s-bal').textContent    = '$' + liveVal.toFixed(0);
-  el('s-pnl').textContent    = (pnl >= 0 ? '+' : '') + '$' + Math.abs(pnl).toFixed(2);
-  el('s-pnl').className      = 's-val ' + (pnl >= 0 ? 'green' : 'red');
-  el('s-trades').textContent = B.num;
-
-  // right port bar
-  el('p-total').textContent   = '$' + liveVal.toFixed(2);
-  el('p-total').className     = 'pc-val ' + (pnl >= 0 ? 'green' : 'red');
-  el('p-pnl').textContent     = (pnl >= 0 ? '+$' : '-$') + Math.abs(pnl).toFixed(2);
-  el('p-pnl').className       = 'pc-val ' + (pnl >= 0 ? 'green' : 'red');
-  el('p-pnlpct').textContent  = (pnl >= 0 ? '+' : '') + pnlPct.toFixed(2) + '%';
-  el('p-wr').textContent      = wr != null ? wr + '%' : '–';
-  el('p-wr').className        = 'pc-val ' + (wr == null ? '' : wr >= 50 ? 'green' : 'red');
-  el('p-wrsub').textContent   = `${total} trade${total !== 1 ? 's' : ''}`;
-  el('p-best').textContent    = B.bestPnl > 0 ? '+$' + B.bestPnl.toFixed(2) : '–';
-  el('p-bestok').textContent  = B.bestToken;
-
-  // chart header
-  el('c-val').textContent     = '$' + liveVal.toFixed(2);
-  const chgEl = el('c-chg');
-  chgEl.textContent = (pnl >= 0 ? '+$' : '-$') + Math.abs(pnl).toFixed(2) +
-                      ' (' + (pnl >= 0 ? '+' : '') + pnlPct.toFixed(2) + '%)';
-  chgEl.style.color = pnl >= 0 ? 'var(--green)' : 'var(--red)';
+/* ── POSITION UI ── */
+function updatePosUI(bot) {
+  const posEl = el('pos-' + bot.id);
+  if (!bot.pos) {
+    posEl.innerHTML = '<span class="bc-pos-empty">No position open</span>';
+    return;
+  }
+  const cur  = bot.pos.coin.price;
+  const uPnl = (bot.pos.qty * cur) - bot.pos.size;
+  const pnlCls = uPnl >= 0 ? 'g' : 'r';
+  posEl.innerHTML = `
+    <span class="bc-pos-coin">${bot.pos.coin.sym}</span>
+    <span class="bc-pos-detail">${bot.pos.coin.name} · $${cur.toFixed(8)}</span>
+    <span class="bc-pos-pnl ${pnlCls}">${uPnl >= 0 ? '+$' : '-$'}${Math.abs(uPnl).toFixed(2)}</span>
+  `;
 }
 
-/* ── TRADE LOG UI ────────────────────────────────────────────────── */
-function addTradeRow(tr) {
-  const pnlCls = tr.pnl >= 0 ? 'pos' : 'neg';
-  const retCls = tr.ret >= 0 ? 'pos' : 'neg';
-  const upDown = tr.pnl >= 0
-    ? '<span style="color:var(--green)">▲ UP</span>'
-    : '<span style="color:var(--red)">▼ DOWN</span>';
+/* ── CARD STATS UI ── */
+function updateCardUI(bot) {
+  const liveVal = bot.balance + (bot.pos ? bot.pos.qty * bot.pos.coin.price : 0);
+  const pnl     = liveVal - bot.start;
+  const pnlCls  = pnl >= 0 ? 'g' : 'r';
 
-  const tbody = el('trade-tbody');
-  const row   = document.createElement('tr');
+  el('bal-'   + bot.id).textContent = '$' + liveVal.toFixed(2);
+  el('pnl-'   + bot.id).textContent = (pnl >= 0 ? '+$' : '-$') + Math.abs(pnl).toFixed(2);
+  el('pnl-'   + bot.id).className   = 'bc-stat-val ' + pnlCls;
+  el('trades-'+ bot.id).textContent = bot.trades;
+
+  if (bot.pos) setStatus(bot.id, 'holding');
+  updatePosUI(bot);
+}
+
+/* ── SUMMARY BAR ── */
+function updateSummary() {
+  const bList  = Object.values(BOTS);
+  const total  = bList.reduce((s,b) => s + b.balance + (b.pos ? b.pos.qty * b.pos.coin.price : 0), 0);
+  const start  = bList.reduce((s,b) => s + b.start, 0);
+  const pnl    = total - start;
+  const pct    = (pnl / start) * 100;
+  const allW   = bList.reduce((s,b) => s + b.wins, 0);
+  const allL   = bList.reduce((s,b) => s + b.losses, 0);
+  const wr     = (allW + allL) > 0 ? Math.round((allW / (allW + allL)) * 100) : null;
+  const active = bList.filter(b => b.pos).length;
+
+  // best bot by P&L
+  const bestBot = bList.reduce((best, b) => {
+    const v = b.balance + (b.pos ? b.pos.qty * b.pos.coin.price : 0) - b.start;
+    return v > best.val ? { val: v, bot: b } : best;
+  }, { val: -Infinity, bot: null });
+
+  el('s-total').textContent   = '$' + total.toFixed(2);
+  el('s-total').className     = 'sb-val ' + (pnl >= 0 ? 'g' : 'r');
+  el('s-pnl').textContent     = (pnl >= 0 ? '+$' : '-$') + Math.abs(pnl).toFixed(2);
+  el('s-pnl').className       = 'sb-val ' + (pnl >= 0 ? 'g' : 'r');
+  el('s-pnlpct').textContent  = (pnl >= 0 ? '+' : '') + pct.toFixed(2) + '%';
+  el('s-trades').textContent  = totalTradeCount;
+  el('s-wr').textContent      = wr != null ? `Win rate: ${wr}%` : 'Win rate: –';
+  el('s-positions').textContent = active + ' / 4';
+  if (bestBot.bot) {
+    el('s-bestbot').textContent = bestBot.bot.name.replace(' Bot','');
+    el('s-bestpnl').textContent = (bestBot.val >= 0 ? '+$' : '-$') + Math.abs(bestBot.val).toFixed(2);
+  }
+}
+
+/* ── TRADE TABLE ROW ── */
+function addTableRow(tr) {
+  const tbody  = el('trade-tbody');
+  const pnlCls = tr.pnl >= 0 ? 'pos' : 'neg';
+  const row    = document.createElement('tr');
   row.className = 'new-row';
   row.innerHTML = `
+    <td><span class="bot-dot" style="background:${tr.botColor}"></span>${tr.botName.replace(' Bot','')}</td>
     <td class="neu">${tr.num}</td>
     <td><span class="tag SELL">SELL</span></td>
-    <td style="color:var(--bright);font-weight:600">${tr.token}</td>
+    <td style="color:var(--bright);font-weight:600">${tr.sym}</td>
     <td>$${tr.entry.toFixed(8)}</td>
     <td>$${tr.exit.toFixed(8)}</td>
     <td>$${tr.size.toFixed(2)}</td>
     <td class="${pnlCls}">${tr.pnl >= 0 ? '+$' : '-$'}${Math.abs(tr.pnl).toFixed(2)}</td>
-    <td class="${retCls}">${tr.ret >= 0 ? '+' : ''}${tr.ret.toFixed(1)}%</td>
-    <td>${upDown}</td>
+    <td class="${pnlCls}">${tr.ret >= 0 ? '+' : ''}${tr.ret.toFixed(1)}%</td>
     <td class="neu">${fmtTime(tr.ts)}</td>
   `;
   tbody.prepend(row);
-  while (tbody.rows.length > 30) tbody.deleteRow(tbody.rows.length - 1);
-  el('log-count').textContent = `${B.num} trade${B.num !== 1 ? 's' : ''}`;
+  while (tbody.rows.length > 40) tbody.deleteRow(tbody.rows.length - 1);
+  el('log-count').textContent = `${totalTradeCount} trade${totalTradeCount !== 1 ? 's' : ''} across 4 bots`;
 }
 
-/* ── EQUITY CHART ────────────────────────────────────────────────── */
-let chart = null;
-
-function initChart() {
-  const ctx = el('equity-canvas').getContext('2d');
-  chart = new Chart(ctx, {
-    type: 'line',
-    data: {
-      labels: [0],
-      datasets: [{
-        data: [1000],
-        borderColor: '#00d4aa',
-        borderWidth: 2,
-        pointRadius: 0,
-        fill: true,
-        backgroundColor: ctx2 => {
-          const g = ctx2.chart.ctx.createLinearGradient(0, 0, 0, 120);
-          g.addColorStop(0, 'rgba(0,212,170,0.2)');
-          g.addColorStop(1, 'rgba(0,212,170,0)');
-          return g;
-        },
-        tension: 0.4,
-      }],
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      animation: { duration: 500 },
-      plugins: {
-        legend: { display: false },
-        tooltip: {
-          backgroundColor: '#0d1117',
-          borderColor: '#1e2d3d',
-          borderWidth: 1,
-          bodyColor: '#fff',
-          bodyFont: { family: 'JetBrains Mono', size: 13 },
-          callbacks: { label: c => ' $' + c.raw.toFixed(2) },
-        },
-      },
-      scales: {
-        x: { display: false },
-        y: {
-          display: true, position: 'right',
-          grid: { color: 'rgba(255,255,255,0.04)' },
-          ticks: { color: '#4a5568', font: { family: 'JetBrains Mono', size: 10 }, maxTicksLimit: 5, callback: v => '$' + v.toFixed(0) },
-        },
-      },
-      interaction: { mode: 'index', intersect: false },
-    },
-  });
-}
-
-function pushEquity() {
-  const liveVal = B.pos ? B.balance + B.pos.qty * prices[B.pos.token] : B.balance;
-  B.equityHist.push({ t: Date.now(), v: liveVal });
-  if (B.equityHist.length > 300) B.equityHist.shift();
-
-  if (!chart) return;
-  const hist = B.equityHist;
-  const isUp = hist[hist.length - 1].v >= hist[0].v;
-  chart.data.labels = hist.map((_, i) => i);
-  chart.data.datasets[0].data = hist.map(h => h.v);
-  chart.data.datasets[0].borderColor = isUp ? '#00d4aa' : '#ff4d6d';
-  chart.update('none');
-}
-
-/* ── BOT LOGIC ───────────────────────────────────────────────────── */
-const HOLD_MIN = 5_000;
-const HOLD_MAX = 16_000;
-const SCAN_INTERVAL = 2_500;
-let holdUntil = 0;
-let phase = 'scan';
-
-function openPosition() {
-  if (B.balance < 20) return false;
-  const tok   = pick(TOKENS);
-  const entry = prices[tok];
-  const size  = Math.min(B.balance * (0.12 + Math.random() * 0.28), B.balance);
-  const qty   = size / entry;
-
-  B.pos     = { token: tok, entry, qty, size, ts: Date.now() };
-  B.balance -= size;
-
-  setPhase('buy', `Bought ${qty.toFixed(0)} ${tok} @ $${entry.toFixed(8)}`);
-  pushFeed('BUY', tok, null);
-  return true;
-}
-
-function closePosition() {
-  if (!B.pos) return;
-  const { token, entry, qty, size } = B.pos;
-  const exit  = prices[token];
-  const value = qty * exit;
-  const pnl   = value - size;
-  const ret   = ((value / size) - 1) * 100;
-
-  B.balance += value;
-  B.num++;
-  if (pnl >= 0) B.wins++; else B.losses++;
-  if (pnl > B.bestPnl) { B.bestPnl = pnl; B.bestToken = token; }
-
-  const tr = { num: B.num, token, entry, exit, size, pnl, ret, ts: Date.now() };
-  B.trades.unshift(tr);
-
-  setPhase('sell', `Sold ${qty.toFixed(0)} ${token} @ $${exit.toFixed(8)}`);
-  pushFeed('SELL', token, pnl);
-  B.pos = null;
-  addTradeRow(tr);
-}
-
-function botTick() {
-  tickPrices();
+/* ── BOT TICK ── */
+function botTick(bot, enterChance) {
   const now = Date.now();
 
-  if (phase === 'scan') {
-    setPhase('scan', `Evaluating ${TOKENS.length} tokens for entry…`);
-    if (Math.random() < 0.55 && B.balance >= 20) {
-      if (openPosition()) {
-        holdUntil = now + HOLD_MIN + Math.random() * (HOLD_MAX - HOLD_MIN);
-        phase = 'hold';
+  if (!bot.pos) {
+    // try to open
+    if (Math.random() < enterChance && bot.balance >= 10) {
+      if (openPos(bot)) {
+        holdUntil[bot.id] = now + bot.holdMin + Math.random() * (bot.holdMax - bot.holdMin);
       }
     }
+  } else if (now >= holdUntil[bot.id]) {
+    closePos(bot);
   } else {
-    setPhase('hold', B.pos
-      ? `${B.pos.token}: $${prices[B.pos.token].toFixed(8)} | watching for exit…`
-      : 'Waiting…');
-    if (now >= holdUntil) {
-      closePosition();
-      phase = 'scan';
-    }
+    setStatus(bot.id, 'holding');
   }
 
-  updatePortUI();
+  updateCardUI(bot);
 }
 
-/* ── INIT ────────────────────────────────────────────────────────── */
-initChart();
-updatePortUI();
-pushEquity();
+/* ── MAIN LOOP ── */
+function tick() {
+  tickPrices();
+  botTick(BOTS.movers,   0.50);
+  botTick(BOTS.mayhem,   0.65); // most aggressive
+  botTick(BOTS.newcoins, 0.55);
+  botTick(BOTS.highcap,  0.35); // most conservative
+  updateSummary();
+}
 
-setInterval(() => { botTick(); pushEquity(); }, SCAN_INTERVAL);
-setInterval(() => { tickPrices(); updatePortUI(); pushEquity(); }, 1000);
+// stagger bot starts so they don't all trade at the same time
+setTimeout(() => setInterval(tick, 2500), 0);
+setTimeout(() => botTick(BOTS.mayhem,   0.8), 1200);
+setTimeout(() => botTick(BOTS.newcoins, 0.7), 2400);
+setTimeout(() => botTick(BOTS.highcap,  0.6), 3600);
+
+tick(); // initial render
 </script>
 </body>
 </html>
